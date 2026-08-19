@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+/logs/
+
+# release build staging (csv.gz/rds are re-derivable from the committed parquet
+# under mfb/{dataset}/parquet/, which IS tracked -- no blanket *.parquet ignore)
+mfb/_release_build/
+
+# Agent tooling state, never source.
+.omc/

@@ -1,0 +1,12 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Shell scripts must be LF (Windows CRLF breaks them in bash/sh)
+*.sh text eol=lf
+
+# Binary assets (line-ending normalization would corrupt these)
+*.parquet binary
+*.rds     binary
+*.qs      binary
+*.png     binary
+*.gz      binary

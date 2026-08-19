@@ -1,0 +1,51 @@
+name: tests
+
+# Offline build-package suite (mirrors ncaa-wbb-hoops-data).
+#
+# Sparse-checkout on purpose: the repo carries a built `mfb/` data tree that the
+# tests never read (fixtures live in tests/fixtures/), so pulling it would
+# cost minutes per run for nothing.
+
+on:
+  push:
+    branches: [main]
+    paths: ['python/**', 'tests/**', 'pyproject.toml', 'uv.lock', '.github/workflows/tests.yml']
+  pull_request:
+    paths: ['python/**', 'tests/**', 'pyproject.toml', 'uv.lock', '.github/workflows/tests.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            python
+            tests
+            pyproject.toml
+            uv.lock
+          sparse-checkout-cone-mode: false
+
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          python-version: '3.12'
+          cache-dependency-glob: uv.lock
+
+      # --frozen: the lockfile is the contract. sdv-py is a git source pinned in
+      # uv.lock, so a green run here proves the build package works against the
+      # sdv-py revision this repo actually claims -- not whatever a developer
+      # happens to have checked out next door.
+      - name: Sync deps
+        run: uv sync --frozen
+
+      - name: Lint
+        run: uv run --no-sync ruff check python tests
+
+      - name: Run the build-package suite
+        run: uv run --no-sync pytest -q
