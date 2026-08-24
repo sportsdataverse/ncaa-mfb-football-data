@@ -6,8 +6,9 @@ Python producer for the **NCAA football (MFB)** release datasets built from
 
 Pipeline: `stats.ncaa.org -> ncaa-mfb-football-raw -> ncaa-mfb-football-data [HERE] -> sportsdataverse-data`
 
-**Status: scaffold.** The build stage re-keys the raw repo's parquet onto the
-release layout and is tested; publishing is not wired yet (see below).
+**Status: live.** The build stage re-keys the raw repo's parquet onto the
+release layout; publishing (parquet + csv.gz + rds per season, ported from
+`ncaa-wbb-hoops-data`) uploads to `sportsdataverse/sportsdataverse-data`.
 
 ## Input contract
 
@@ -43,10 +44,11 @@ season (ay 2026), matching the raw tree's `academic_year` key and the
 - **parquet**: committed in-repo under `mfb/{dataset}/parquet/` as
   `ncaa_mfb_{dataset}_{season}.parquet`, every frame stamped with `season`
   (Int64, ending year). The `ncaa_mfb_` prefix matches the release tag.
-- **parquet + csv.gz + rds** (planned): release assets on
+- **parquet + csv.gz + rds**: release assets on
   `sportsdataverse/sportsdataverse-data`, tagged `ncaa_mfb_{dataset}`, staged
-  under the gitignored `mfb/_release_build/`. Port `publish.py` / `rds.py` /
-  `run_publish.sh` from `ncaa-wbb-hoops-data` when the first release is cut.
+  under the gitignored `mfb/_release_build/` (`io.py` / `rds.py` / `publish.py`,
+  ported from `ncaa-wbb-hoops-data` — per-file `gh release upload --clobber`,
+  create-if-missing, `GhUnavailable` resume semantics).
 
 ## Run order
 
@@ -56,6 +58,13 @@ SEASON=2026 bash scripts/run_build.sh                  # all datasets
 SEASON=2026 DATASET=pbp_cfbfastr bash scripts/run_build.sh
 # or directly:
 uv run python -m ncaa_mfb_data_build build --dataset all --season 2026
+
+# publish one season (build + stage csv.gz/rds + gh upload):
+SEASON=2026 bash scripts/run_publish.sh
+# full-history sweep (resumable; DRY_RUN=1 to stage without uploading):
+bash scripts/run_historical_publish.sh                 # 2026 down to 2014
+# audit built seasons vs what each release actually holds:
+uv run python -m ncaa_mfb_data_build check
 ```
 
 Offline; `NCAA_MFB_RAW_ROOT` defaults to `../ncaa-mfb-football-raw`. Backfill

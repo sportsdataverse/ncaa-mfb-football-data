@@ -1,9 +1,11 @@
-"""CLI -- ``ncaa_mfb_data_build build --dataset {ds|all} --season YYYY``.
+"""CLI -- ``ncaa_mfb_data_build build --dataset {ds|all} --season YYYY [--publish|--dry-run]``.
 
-Scaffold stage: re-key the raw repo's per-season parquet onto the release
-layout. Publishing (release assets on sportsdataverse/sportsdataverse-data) is
-deliberately NOT here yet -- port ``publish.py`` from ncaa-wbb-hoops-data when
-the first release is cut.
+Build re-keys the raw repo's per-season parquet onto the release layout
+(``mfb/{dataset}/parquet/ncaa_mfb_{dataset}_{season}.parquet`` via
+``io.write_dataset``, which also stages the csv.gz release asset and upserts
+the manifest). ``--publish`` uploads parquet + csv.gz + rds to the
+``ncaa_mfb_{dataset}`` release on sportsdataverse/sportsdataverse-data
+(``publish.py``, ported from ncaa-wbb-hoops-data).
 """
 
 from __future__ import annotations
@@ -14,13 +16,24 @@ from pathlib import Path
 
 import polars as pl
 
+from ncaa_mfb_data_build._logging import get_logger
 from ncaa_mfb_data_build.config import REGISTRY, DatasetSpec, raw_root
+from ncaa_mfb_data_build.io import write_dataset
+
+log = get_logger()
 
 _CAT_RE = re.compile(r"player_stats_(.+)\.parquet$")
 
 
-def build_dataset(spec: DatasetSpec, season: int, base: Path, raw: Path) -> pl.DataFrame:
-    """Read the raw files for ``(spec, season)``, stamp ``season``, write the release parquet."""
+def build_dataset(
+    spec: DatasetSpec,
+    season: int,
+    base: Path,
+    raw: Path,
+    *,
+    release: bool = False,
+) -> pl.DataFrame:
+    """Read the raw files for ``(spec, season)``, stamp ``season``, write via ``io``."""
     files = sorted((raw / "mfb").glob(spec.raw_glob.format(season=season)))
     if not files:
         raise FileNotFoundError(f"{spec.name} {season}: no {spec.raw_glob!r} under {raw / 'mfb'}")
@@ -33,25 +46,105 @@ def build_dataset(spec: DatasetSpec, season: int, base: Path, raw: Path) -> pl.D
     df = pl.concat(frames, how="diagonal_relaxed")
     if "season" not in df.columns:
         df = df.with_columns(pl.lit(season, dtype=pl.Int64).alias("season"))
-    out = base / "mfb" / spec.name / "parquet" / f"{spec.tag}_{season}.parquet"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    df.write_parquet(out)
-    print(f"{spec.name} {season}: {df.height} rows -> {out}", flush=True)
+    write_dataset(df, spec, season, base=base, release=release)
     return df
 
 
-def main(argv: "list[str] | None" = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    sub = ap.add_subparsers(dest="cmd", required=True)
-    b = sub.add_parser("build", help="raw per-season parquet -> mfb/{dataset}/parquet/")
-    b.add_argument("--dataset", default="all", choices=["all", *REGISTRY])
-    b.add_argument("--season", type=int, required=True, help="ENDING year: 2026 = fall-2025")
-    b.add_argument("--base", default=str(Path(__file__).resolve().parents[2]), help="this repo's root")
-    b.add_argument("--raw-root", default=None, help=f"override ${'NCAA_MFB_RAW_ROOT'} / ../ncaa-mfb-football-raw")
-    args = ap.parse_args(argv)
-
+def _build(args: argparse.Namespace) -> int:
     raw = Path(args.raw_root) if args.raw_root else raw_root()
+    base = Path(args.base)
     names = list(REGISTRY) if args.dataset == "all" else [args.dataset]
     for name in names:
-        build_dataset(REGISTRY[name], args.season, Path(args.base), raw)
+        spec = REGISTRY[name]
+        build_dataset(spec, args.season, base, raw, release=args.publish or args.dry_run)
+        if args.publish or args.dry_run:
+            from ncaa_mfb_data_build import publish
+
+            publish.publish_dataset(spec, args.season, base=base, dry_run=args.dry_run)
     return 0
+
+
+def _check(args: argparse.Namespace) -> int:
+    """Compare each dataset's LOCALLY BUILT seasons against what the release holds.
+
+    Semantics ported from ncaa-wbb-hoops-data: only ``built - live`` is fatal;
+    ``GhUnavailable`` exits 2 (could-not-look is not there-are-gaps).
+    """
+    from ncaa_mfb_data_build.publish import (
+        DEFAULT_REPO,
+        GhUnavailable,
+        published_seasons,
+    )
+
+    datasets = list(REGISTRY) if args.dataset == "all" else [args.dataset]
+    base = Path(args.base)
+    missing_total = 0
+    for name in datasets:
+        spec = REGISTRY[name]
+        built = {
+            int(p.stem.rsplit("_", 1)[1])
+            for p in (base / "mfb" / spec.name / "parquet").glob(f"{spec.tag}_*.parquet")
+            if p.stem.rsplit("_", 1)[1].isdigit()
+        }
+        try:
+            live = published_seasons(spec, repo=args.repo or DEFAULT_REPO)
+        except GhUnavailable as exc:
+            log.error("cannot audit %s: %s", name, exc)
+            return 2
+        if args.porcelain:
+            for s in sorted(live):
+                print(f"{name} {s}")
+            continue
+        missing = sorted(built - live)
+        extra = sorted(live - built)
+        missing_total += len(missing)
+        status = "OK  " if not missing else "GAP "
+        log.info(
+            "%s %-15s built=%d published=%d%s%s",
+            status,
+            name,
+            len(built),
+            len(live),
+            f" MISSING={missing}" if missing else "",
+            f" PUBLISHED_ONLY={extra}" if extra else "",
+        )
+    if missing_total:
+        log.error("%d built season(s) are NOT on their release", missing_total)
+    return 1 if missing_total else 0
+
+
+def main(argv: "list[str] | None" = None) -> int:
+    ap = argparse.ArgumentParser(prog="ncaa_mfb_data_build", description=__doc__)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    b = sub.add_parser("build", help="raw per-season parquet -> mfb/{dataset}/parquet/ [+ publish]")
+    b.add_argument("--dataset", default="all", choices=["all", *REGISTRY])
+    b.add_argument("--season", type=int, required=True, help="ENDING year: 2026 = fall-2025")
+    b.add_argument(
+        "--base", default=str(Path(__file__).resolve().parents[2]), help="this repo's root"
+    )
+    b.add_argument(
+        "--raw-root",
+        default=None,
+        help=f"override ${'NCAA_MFB_RAW_ROOT'} / ../ncaa-mfb-football-raw",
+    )
+    g = b.add_mutually_exclusive_group()
+    g.add_argument("--publish", action="store_true", help="upload parquet+csv+rds to the release")
+    g.add_argument(
+        "--dry-run", action="store_true", help="stage release assets, log would-be uploads"
+    )
+    b.set_defaults(func=_build)
+
+    c = sub.add_parser("check", help="audit built seasons against what each release actually holds")
+    c.add_argument("--dataset", default="all", choices=["all", *REGISTRY])
+    c.add_argument("--base", default=str(Path(__file__).resolve().parents[2]))
+    c.add_argument("--repo", default=None)
+    c.add_argument(
+        "--porcelain",
+        action="store_true",
+        help="print '<dataset> <season>' per published unit (resume index)",
+    )
+    c.set_defaults(func=_check)
+
+    args = ap.parse_args(argv)
+    return args.func(args)
