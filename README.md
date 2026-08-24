@@ -6,9 +6,16 @@ Python producer for the **NCAA football (MFB)** release datasets built from
 
 Pipeline: `stats.ncaa.org -> ncaa-mfb-football-raw -> ncaa-mfb-football-data [HERE] -> sportsdataverse-data`
 
-**Status: live.** The build stage re-keys the raw repo's parquet onto the
-release layout; publishing (parquet + csv.gz + rds per season, ported from
+**Status: live.** This repo owns the reshape stage (the WBB/MBB standard):
+game-grain datasets build from the raw repo's parsed+enriched
+`mfb/json/{contest_id}.json.gz` payloads (stage 03 -- espn_game_id and team
+ids included); reference datasets (teams/schedule/rosters) re-key the raw
+tree's parquet. Publishing (parquet + csv.gz + rds per season, ported from
 `ncaa-wbb-hoops-data`) uploads to `sportsdataverse/sportsdataverse-data`.
+Numbered `python/ncaa_mfb_NN_{dataset}_creation.py` shims mirror the twins;
+`tests/test_stage_inventory.py` gates the set and order. A per-season QA
+frame (final-score parity incl. the name-blind `scores_match`) is committed
+under `mfb/qa/` and never released.
 
 ## Input contract
 

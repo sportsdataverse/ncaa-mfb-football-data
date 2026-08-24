@@ -24,6 +24,17 @@ log = get_logger()
 
 _CAT_RE = re.compile(r"player_stats_(.+)\.parquet$")
 
+#: Datasets built from parsed payloads (builders.py); the rest re-key raw parquet.
+GAME_GRAIN = {
+    "pbp",
+    "pbp_cfbfastr",
+    "drives",
+    "linescore",
+    "team_stats",
+    "player_stats",
+    "officials",
+}
+
 
 def build_dataset(
     spec: DatasetSpec,
@@ -37,20 +48,39 @@ def build_dataset(
 
     ``season`` is the STARTING year (football convention); the raw tree is keyed
     by the ENDING academic year, so raw paths substitute ``ay = season + 1``.
+
+    Game-grain datasets build from the raw repo's parsed+enriched payloads
+    (``mfb/json/``, stage 03) via :mod:`ncaa_mfb_data_build.builders` -- the
+    ``-data``-owns-reshaping standard. Reference datasets (teams / schedule /
+    rosters) still re-key the raw tree's parquet, which the raw repo owns.
     """
-    ay = season + 1
-    files = sorted((raw / "mfb").glob(spec.raw_glob.format(season=ay)))
-    if not files:
-        raise FileNotFoundError(
-            f"{spec.name} {season} (ay {ay}): no {spec.raw_glob!r} under {raw / 'mfb'}"
-        )
-    frames = []
-    for f in files:
-        df = pl.read_parquet(f)
+    if spec.name in GAME_GRAIN:
+        from ncaa_mfb_data_build import builders
+
         if spec.name == "player_stats":
-            df = df.with_columns(pl.lit(_CAT_RE.search(f.name).group(1)).alias("category"))
-        frames.append(df)
-    df = pl.concat(frames, how="diagonal_relaxed")
+            df = builders.build_player_stats(season, raw)
+        elif spec.name == "pbp_cfbfastr":
+            df = builders.build_pbp_cfbfastr(season, raw)
+        else:
+            df = builders.build_game_dataset(spec.name, season, raw)
+        if not df.height:
+            raise FileNotFoundError(
+                f"{spec.name} {season}: no parsed payloads under {raw / 'mfb' / 'json'}"
+            )
+    else:
+        ay = season + 1
+        files = sorted((raw / "mfb").glob(spec.raw_glob.format(season=ay)))
+        if not files:
+            raise FileNotFoundError(
+                f"{spec.name} {season} (ay {ay}): no {spec.raw_glob!r} under {raw / 'mfb'}"
+            )
+        frames = []
+        for f in files:
+            fdf = pl.read_parquet(f)
+            if spec.name == "player_stats":
+                fdf = fdf.with_columns(pl.lit(_CAT_RE.search(f.name).group(1)).alias("category"))
+            frames.append(fdf)
+        df = pl.concat(frames, how="diagonal_relaxed")
     # ALWAYS stamp -- never trust an upstream `season` to agree with the asset
     # name (an asset NAMED _2026 whose rows said 2025 once made sdv-db's
     # season-key check silently ingest 0 rows). With the starting-year standard
@@ -72,7 +102,33 @@ def _build(args: argparse.Namespace) -> int:
             from ncaa_mfb_data_build import publish
 
             publish.publish_dataset(spec, args.season, base=base, dry_run=args.dry_run)
+    if args.dataset == "all":
+        _write_qa(args.season, base)
     return 0
+
+
+def _write_qa(season: int, base: Path) -> None:
+    """Final-score QA frame -> committed ``mfb/qa/`` (small, never released)."""
+    from ncaa_mfb_data_build import builders
+
+    cf_p = base / "mfb" / "pbp_cfbfastr" / "parquet" / f"ncaa_mfb_pbp_cfbfastr_{season}.parquet"
+    ls_p = base / "mfb" / "linescore" / "parquet" / f"ncaa_mfb_linescore_{season}.parquet"
+    if not (cf_p.is_file() and ls_p.is_file()):
+        return
+    qa = builders.build_qa(season, pl.read_parquet(cf_p), pl.read_parquet(ls_p))
+    out = base / "mfb" / "qa" / f"qa_pbp_vs_linescore_{season}.parquet"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    qa.write_parquet(out)
+    ok = (qa.get_column("final_score_match") == True).sum()  # noqa: E712
+    unv = qa.get_column("final_score_match").null_count()
+    log.info(
+        "qa %s: %d/%d exact, %d unverifiable, %d flagged",
+        season,
+        ok,
+        qa.height,
+        unv,
+        qa.height - ok - unv,
+    )
 
 
 def _check(args: argparse.Namespace) -> int:

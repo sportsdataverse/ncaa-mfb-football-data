@@ -7,6 +7,7 @@ requires-python = ">=3.9"
 license = { text = "MIT" }
 dependencies = [
     "polars>=1.0,<2.0",
+    "sportsdataverse",
 ]
 
 [project.scripts]
@@ -37,7 +38,9 @@ ignore = ["E712"]
 [tool.ruff.lint.isort]
 known-first-party = ["ncaa_mfb_data_build"]
 
-# No sportsdataverse dependency yet: the -raw repo already parses (sdv-py
-# cfb_ncaa_pbp/cfb_ncaa_box run inside its stage 05), so this repo only
-# re-keys committed parquet. Add the git-source pin (see ncaa-wbb-hoops-data
-# [tool.uv.sources]) the day a dataset here needs an sdv-py parser.
+# Game-grain datasets build from parsed payloads and pbp_cfbfastr runs the
+# graduated sdv-py mapper, so the git-source pin is live (a git source, not a
+# ../../sdv-py path -- a relative pin only builds on this sibling layout and
+# fails on CI). For local sdv-py work: uv pip install -e ../sdv-py.
+[tool.uv.sources]
+sportsdataverse = { git = "https://github.com/sportsdataverse/sportsdataverse-py", branch = "main" }
