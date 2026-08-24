@@ -192,13 +192,18 @@ def build_qa(season: int, pbp_cfbfastr: pl.DataFrame, linescore: pl.DataFrame) -
         }
         comp = {r["pos_team"]: r["pos_team_score"], r["def_pos_team"]: r["def_pos_team_score"]}
         match = all(o.get(_norm_team(t)) == s for t, s in comp.items()) if o else None
+        # a None score (unresolved opponent / truncated pbp) is unverifiable,
+        # not comparable -- sorted() on a None-bearing list raises
+        comparable = o and None not in comp.values() and None not in o.values()
         rows.append(
             {
                 "game_id": r["game_id"],
                 "computed_final": ", ".join(f"{t} {s}" for t, s in comp.items()),
                 "official_final": ", ".join(f"{t} {s}" for t, s in o.items()),
                 "final_score_match": match,
-                "scores_match": sorted(comp.values()) == sorted(o.values()) if o else None,
+                "scores_match": (
+                    sorted(comp.values()) == sorted(o.values()) if comparable else None
+                ),
                 "ot_game": str(r["game_id"]) in ot_games,
             }
         )
