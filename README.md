@@ -35,9 +35,11 @@ This repo consumes the committed output of
 `mfb/datasets/{ay}/qa_pbp_vs_linescore.parquet` is a raw-side QA artifact and
 is not released.
 
-**Season convention: ENDING academic year.** `season = 2026` is the fall-2025
-season (ay 2026), matching the raw tree's `academic_year` key and the
-`mfb/datasets/{ay}/` directory. Never re-key to the start year.
+**Season convention: STARTING year** — the football standard (cfbfastR / cfb /
+nfl): `season = 2025` is the fall-2025 season, `2026` is the season kicking off
+in fall 2026. The raw tree is keyed by stats.ncaa.org's ENDING academic year
+(`mfb/datasets/{ay}/`, ay = season + 1); this build is the ONLY place that
+re-keys, so the two conventions never mix downstream.
 
 ## Output contract
 
@@ -54,15 +56,15 @@ season (ay 2026), matching the raw tree's `academic_year` key and the
 
 ```bash
 uv sync --frozen
-SEASON=2026 bash scripts/run_build.sh                  # all datasets
-SEASON=2026 DATASET=pbp_cfbfastr bash scripts/run_build.sh
+SEASON=2025 bash scripts/run_build.sh                  # all datasets
+SEASON=2025 DATASET=pbp_cfbfastr bash scripts/run_build.sh
 # or directly:
-uv run python -m ncaa_mfb_data_build build --dataset all --season 2026
+uv run python -m ncaa_mfb_data_build build --dataset all --season 2025
 
 # publish one season (build + stage csv.gz/rds + gh upload):
-SEASON=2026 bash scripts/run_publish.sh
+SEASON=2025 bash scripts/run_publish.sh
 # full-history sweep (resumable; DRY_RUN=1 to stage without uploading):
-bash scripts/run_historical_publish.sh                 # 2026 down to 2014
+bash scripts/run_historical_publish.sh                 # 2025 down to 2013
 # audit built seasons vs what each release actually holds:
 uv run python -m ncaa_mfb_data_build check
 ```

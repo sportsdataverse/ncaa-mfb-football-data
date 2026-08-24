@@ -5,7 +5,7 @@
 # incremental work is `run_build.sh` / `run_publish.sh` for a single season --
 # reach for this only when re-materialising the whole history.
 #
-#   bash scripts/run_historical_publish.sh                 # 2014..2026, all datasets
+#   bash scripts/run_historical_publish.sh                 # 2013..2025, all datasets
 #   START=2015 END=2010 bash scripts/run_historical_publish.sh
 #   DATASETS="pbp shots" bash scripts/run_historical_publish.sh
 #   DRY_RUN=1 bash scripts/run_historical_publish.sh        # build + stage, no uploads
@@ -23,8 +23,8 @@ set -uo pipefail          # NOT -e: one bad season must not kill the sweep
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-START="${START:-2026}"          # newest season (ending year)
-END="${END:-2014}"              # oldest
+START="${START:-2025}"          # newest season (STARTING year: 2025 = fall-2025)
+END="${END:-2013}"              # oldest
 DATASETS="${DATASETS:-}"        # empty = every dataset in config.REGISTRY order
 FORCE="${FORCE:-0}"             # 1 = rebuild even when the parquet looks current
 DRY_RUN="${DRY_RUN:-0}"         # 1 = no gh uploads (still builds + stages)

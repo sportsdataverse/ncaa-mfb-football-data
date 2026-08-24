@@ -3,8 +3,8 @@
 # sibling ncaa-mfb-football-raw checkout (or NCAA_MFB_RAW_ROOT if set).
 #
 # Usage:
-#   SEASON=2026 bash scripts/run_build.sh                 # all datasets (2026 = fall-2025)
-#   SEASON=2026 DATASET=pbp_cfbfastr bash scripts/run_build.sh
+#   SEASON=2025 bash scripts/run_build.sh                 # all datasets (2025 = fall-2025, STARTING year)
+#   SEASON=2025 DATASET=pbp_cfbfastr bash scripts/run_build.sh
 #
 # Watch live in another terminal:  tail -f logs/run_build_<timestamp>.log
 set -uo pipefail

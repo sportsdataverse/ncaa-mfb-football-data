@@ -12,6 +12,7 @@ from ncaa_mfb_data_build.config import REGISTRY
 
 
 def _raw_tree(root: Path, season: int = 2026) -> Path:
+    """``season`` here is the raw tree's key: the ENDING academic year (ay)."""
     m = root / "mfb"
     (m / "teams/parquet").mkdir(parents=True)
     (m / "schedules/parquet").mkdir(parents=True)
@@ -38,17 +39,18 @@ def _raw_tree(root: Path, season: int = 2026) -> Path:
 
 
 def test_build_all_rekeys_every_dataset(tmp_path: Path) -> None:
-    raw = _raw_tree(tmp_path / "raw")
+    # raw tree keyed ay 2026 (fall 2025); the released season is the START year 2025
+    raw = _raw_tree(tmp_path / "raw", season=2026)
     base = tmp_path / "data"
-    assert main(["build", "--season", "2026", "--base", str(base), "--raw-root", str(raw)]) == 0
+    assert main(["build", "--season", "2025", "--base", str(base), "--raw-root", str(raw)]) == 0
     for name, spec in REGISTRY.items():
-        out = base / "mfb" / name / "parquet" / f"ncaa_mfb_{name}_2026.parquet"
+        out = base / "mfb" / name / "parquet" / f"ncaa_mfb_{name}_2025.parquet"
         assert out.is_file(), name
         df = pl.read_parquet(out)
-        assert df.get_column("season").to_list() == [2026] * df.height
-    teams = pl.read_parquet(base / "mfb/teams/parquet/ncaa_mfb_teams_2026.parquet")
+        assert df.get_column("season").to_list() == [2025] * df.height
+    teams = pl.read_parquet(base / "mfb/teams/parquet/ncaa_mfb_teams_2025.parquet")
     assert sorted(teams.get_column("division").to_list()) == [11, 12]
-    ps = pl.read_parquet(base / "mfb/player_stats/parquet/ncaa_mfb_player_stats_2026.parquet")
+    ps = pl.read_parquet(base / "mfb/player_stats/parquet/ncaa_mfb_player_stats_2025.parquet")
     assert sorted(ps.get_column("category").to_list()) == ["passing", "rushing"]
     assert {"pass_attempts", "rush_yards"} <= set(ps.columns)
 
@@ -62,7 +64,7 @@ def test_missing_season_fails_loudly(tmp_path: Path) -> None:
                 "--dataset",
                 "pbp",
                 "--season",
-                "2025",
+                "2024",
                 "--base",
                 str(tmp_path),
                 "--raw-root",

@@ -33,10 +33,17 @@ def build_dataset(
     *,
     release: bool = False,
 ) -> pl.DataFrame:
-    """Read the raw files for ``(spec, season)``, stamp ``season``, write via ``io``."""
-    files = sorted((raw / "mfb").glob(spec.raw_glob.format(season=season)))
+    """Read the raw files for ``(spec, season)``, stamp ``season``, write via ``io``.
+
+    ``season`` is the STARTING year (football convention); the raw tree is keyed
+    by the ENDING academic year, so raw paths substitute ``ay = season + 1``.
+    """
+    ay = season + 1
+    files = sorted((raw / "mfb").glob(spec.raw_glob.format(season=ay)))
     if not files:
-        raise FileNotFoundError(f"{spec.name} {season}: no {spec.raw_glob!r} under {raw / 'mfb'}")
+        raise FileNotFoundError(
+            f"{spec.name} {season} (ay {ay}): no {spec.raw_glob!r} under {raw / 'mfb'}"
+        )
     frames = []
     for f in files:
         df = pl.read_parquet(f)
@@ -44,12 +51,11 @@ def build_dataset(
             df = df.with_columns(pl.lit(_CAT_RE.search(f.name).group(1)).alias("category"))
         frames.append(df)
     df = pl.concat(frames, how="diagonal_relaxed")
-    # ALWAYS stamp -- never trust an upstream `season`. pbp_cfbfastr carries
-    # the cfbfastR fall-year convention (2025 for ay 2026), which broke the
-    # repo's ending-year contract: the asset was NAMED _2026 but its rows said
-    # 2025, and sdv-db's season-key check silently ingested 0 rows for every
-    # season. The release/DB key is the ENDING year, period; fall year is
-    # always season - 1.
+    # ALWAYS stamp -- never trust an upstream `season` to agree with the asset
+    # name (an asset NAMED _2026 whose rows said 2025 once made sdv-db's
+    # season-key check silently ingest 0 rows). With the starting-year standard
+    # this matches cfbfastR's own convention, but the stamp stays unconditional
+    # so name and column can never drift again.
     df = df.with_columns(pl.lit(season, dtype=pl.Int64).alias("season"))
     write_dataset(df, spec, season, base=base, release=release)
     return df
@@ -124,7 +130,9 @@ def main(argv: "list[str] | None" = None) -> int:
 
     b = sub.add_parser("build", help="raw per-season parquet -> mfb/{dataset}/parquet/ [+ publish]")
     b.add_argument("--dataset", default="all", choices=["all", *REGISTRY])
-    b.add_argument("--season", type=int, required=True, help="ENDING year: 2026 = fall-2025")
+    b.add_argument(
+        "--season", type=int, required=True, help="STARTING year: 2025 = fall-2025 (ay 2026)"
+    )
     b.add_argument(
         "--base", default=str(Path(__file__).resolve().parents[2]), help="this repo's root"
     )
