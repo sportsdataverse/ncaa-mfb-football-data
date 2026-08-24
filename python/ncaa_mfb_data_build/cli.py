@@ -44,8 +44,13 @@ def build_dataset(
             df = df.with_columns(pl.lit(_CAT_RE.search(f.name).group(1)).alias("category"))
         frames.append(df)
     df = pl.concat(frames, how="diagonal_relaxed")
-    if "season" not in df.columns:
-        df = df.with_columns(pl.lit(season, dtype=pl.Int64).alias("season"))
+    # ALWAYS stamp -- never trust an upstream `season`. pbp_cfbfastr carries
+    # the cfbfastR fall-year convention (2025 for ay 2026), which broke the
+    # repo's ending-year contract: the asset was NAMED _2026 but its rows said
+    # 2025, and sdv-db's season-key check silently ingested 0 rows for every
+    # season. The release/DB key is the ENDING year, period; fall year is
+    # always season - 1.
+    df = df.with_columns(pl.lit(season, dtype=pl.Int64).alias("season"))
     write_dataset(df, spec, season, base=base, release=release)
     return df
 
