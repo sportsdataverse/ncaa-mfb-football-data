@@ -163,6 +163,47 @@ uv run ruff check python tests
 
 Hermetic: `tests/test_build.py` fabricates a raw tree in `tmp_path`.
 
+## Repository layout
+
+<!-- BEGIN GENERATED: layout -->
+
+```
+ncaa-mfb-football-data/
+├── mfb/
+│   ├── drives/
+│   ├── linescore/
+│   ├── officials/
+│   ├── pbp/
+│   ├── pbp_cfbfastr/
+│   ├── player_stats/
+│   ├── qa/
+│   ├── rosters/
+│   └── … 3 more
+├── python/   # Python pipeline stages, numbered in build order
+│   ├── ncaa_mfb_data_build/
+│   ├── ncaa_mfb_01_teams_creation.py
+│   ├── ncaa_mfb_02_schedule_creation.py
+│   ├── ncaa_mfb_03_rosters_creation.py
+│   ├── ncaa_mfb_04_pbp_creation.py
+│   ├── ncaa_mfb_05_pbp_cfbfastr_creation.py
+│   ├── ncaa_mfb_06_team_stats_creation.py
+│   ├── ncaa_mfb_07_player_stats_creation.py
+│   ├── ncaa_mfb_08_drives_creation.py
+│   ├── ncaa_mfb_09_officials_creation.py
+│   └── ncaa_mfb_10_linescore_creation.py
+├── scripts/   # bash drivers (the daily/weekly entry points)
+│   ├── run_build.sh
+│   ├── run_historical_publish.sh
+│   └── run_publish.sh
+└── tests/   # test suite
+    ├── test_build.py
+    ├── test_io.py
+    ├── test_publish.py
+    └── test_stage_inventory.py
+```
+
+<!-- END GENERATED: layout -->
+
 ## Reports & explainers
 
 <!-- BEGIN GENERATED: reports -->
