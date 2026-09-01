@@ -196,3 +196,25 @@ Hermetic: `tests/test_build.py` fabricates a raw tree in `tmp_path`.
 | [`ncaa_mfb_linescore`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mfb_linescore) | 39 | 2.9 MB | 2026-08-24 |
 
 <!-- END GENERATED: status -->
+
+## Consumers
+
+The packages that read what this repo produces:
+
+- **R:** [cfbfastR](https://cfbfastR.sportsdataverse.org) — docs at <https://cfbfastR.sportsdataverse.org>
+- **Python:** [`sportsdataverse.cfb (cfb_ncaa_*)`](https://github.com/sportsdataverse/sportsdataverse-py) — docs at <https://py.sportsdataverse.org>
+
+## Stage inventory
+
+Every numbered pipeline stage in `python/` (auto-listed; run subsets with the `scripts/*.sh` drivers by number or name):
+
+- `python/ncaa_mfb_01_teams_creation.py`
+- `python/ncaa_mfb_02_schedule_creation.py`
+- `python/ncaa_mfb_03_rosters_creation.py`
+- `python/ncaa_mfb_04_pbp_creation.py`
+- `python/ncaa_mfb_05_pbp_cfbfastr_creation.py`
+- `python/ncaa_mfb_06_team_stats_creation.py`
+- `python/ncaa_mfb_07_player_stats_creation.py`
+- `python/ncaa_mfb_08_drives_creation.py`
+- `python/ncaa_mfb_09_officials_creation.py`
+- `python/ncaa_mfb_10_linescore_creation.py`
