@@ -163,6 +163,16 @@ uv run ruff check python tests
 
 Hermetic: `tests/test_build.py` fabricates a raw tree in `tmp_path`.
 
+## Reports & explainers
+
+<!-- BEGIN GENERATED: reports -->
+
+| Report | What it is | Last updated |
+|---|---|---|
+| _none yet_ | — | — |
+
+<!-- END GENERATED: reports -->
+
 ## Automation & status
 
 <!-- BEGIN GENERATED: status -->
