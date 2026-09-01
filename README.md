@@ -17,6 +17,80 @@ Numbered `python/ncaa_mfb_NN_{dataset}_creation.py` shims mirror the twins;
 frame (final-score parity incl. the name-blind `scores_match`) is committed
 under `mfb/qa/` and never released.
 
+## ncaa-mfb-football workflow diagram
+
+```mermaid
+  graph LR;
+    S[stats.ncaa.org]-->A[ncaa-mfb-football-raw];
+    A[ncaa-mfb-football-raw]-->B[ncaa-mfb-football-data];
+    B[ncaa-mfb-football-data]-->C1[ncaa_mfb_teams];
+    B[ncaa-mfb-football-data]-->C2[ncaa_mfb_schedule];
+    B[ncaa-mfb-football-data]-->C3[ncaa_mfb_rosters];
+    B[ncaa-mfb-football-data]-->C4[ncaa_mfb_pbp];
+    B[ncaa-mfb-football-data]-->C5[ncaa_mfb_pbp_cfbfastr];
+    B[ncaa-mfb-football-data]-->C6[ncaa_mfb_team_stats];
+    B[ncaa-mfb-football-data]-->C7[ncaa_mfb_player_stats];
+    B[ncaa-mfb-football-data]-->C8[ncaa_mfb_drives];
+    B[ncaa-mfb-football-data]-->C9[ncaa_mfb_officials];
+    B[ncaa-mfb-football-data]-->C10[ncaa_mfb_linescore];
+```
+
+```mermaid
+flowchart TB;
+    subgraph A[ncaa-mfb-football-raw];
+        direction TB;
+        A0[scripts/run_backfill_all.sh]-->A1[python/ncaa_mfb_01_schedules_scrape.py];
+        A1[python/ncaa_mfb_01_schedules_scrape.py]-->A2[python/ncaa_mfb_02_games_scrape.py];
+        A2[python/ncaa_mfb_02_games_scrape.py]-->A3[python/ncaa_mfb_03_games_parse.py];
+        A3[python/ncaa_mfb_03_games_parse.py]-->A4[python/ncaa_mfb_04_rosters_scrape.py];
+        A4[python/ncaa_mfb_04_rosters_scrape.py]-->A5[python/ncaa_mfb_05_datasets_build.py];
+        A5[python/ncaa_mfb_05_datasets_build.py]-->A6[python/ncaa_mfb_06_xwalk_build.py];
+    end;
+
+    subgraph B[ncaa-mfb-football-data];
+        direction TB;
+        B0[scripts/run_build.sh]-->B1[python/ncaa_mfb_01_teams_creation.py];
+        B1[python/ncaa_mfb_01_teams_creation.py]-->B2[python/ncaa_mfb_02_schedule_creation.py];
+        B2[python/ncaa_mfb_02_schedule_creation.py]-->B3[python/ncaa_mfb_03_rosters_creation.py];
+        B3[python/ncaa_mfb_03_rosters_creation.py]-->B4[python/ncaa_mfb_04_pbp_creation.py];
+        B4[python/ncaa_mfb_04_pbp_creation.py]-->B5[python/ncaa_mfb_05_pbp_cfbfastr_creation.py];
+        B5[python/ncaa_mfb_05_pbp_cfbfastr_creation.py]-->B6[python/ncaa_mfb_06_team_stats_creation.py];
+        B6[python/ncaa_mfb_06_team_stats_creation.py]-->B7[python/ncaa_mfb_07_player_stats_creation.py];
+        B7[python/ncaa_mfb_07_player_stats_creation.py]-->B8[python/ncaa_mfb_08_drives_creation.py];
+        B8[python/ncaa_mfb_08_drives_creation.py]-->B9[python/ncaa_mfb_09_officials_creation.py];
+        B9[python/ncaa_mfb_09_officials_creation.py]-->B10[python/ncaa_mfb_10_linescore_creation.py];
+    end;
+
+    subgraph C[sportsdataverse-data Releases];
+        direction TB;
+        C1[ncaa_mfb_teams];
+        C2[ncaa_mfb_schedule];
+        C3[ncaa_mfb_rosters];
+        C4[ncaa_mfb_pbp];
+        C5[ncaa_mfb_pbp_cfbfastr];
+        C6[ncaa_mfb_team_stats];
+        C7[ncaa_mfb_player_stats];
+        C8[ncaa_mfb_drives];
+        C9[ncaa_mfb_officials];
+        C10[ncaa_mfb_linescore];
+    end;
+
+    A-->B;
+    B-->C;
+```
+
+`scripts/run_backfill_all.sh` (raw) and `scripts/run_build.sh` +
+`scripts/run_publish.sh` (data) are the drivers. Stage numbers are intended
+build order, not run order.
+
+[ncaa-mfb-football-raw repository (source: stats.ncaa.org)](https://github.com/sportsdataverse/ncaa-mfb-football-raw)
+
+[ncaa-mfb-football-data repository (source: stats.ncaa.org)](https://github.com/sportsdataverse/ncaa-mfb-football-data)
+
+[cfbfastR-cfb-raw repository (source: ESPN)](https://github.com/sportsdataverse/cfbfastR-cfb-raw)
+
+[cfbfastR-cfb-data repository (source: ESPN)](https://github.com/sportsdataverse/cfbfastR-cfb-data)
+
 ## Input contract
 
 This repo consumes the committed output of
@@ -88,3 +162,27 @@ uv run ruff check python tests
 ```
 
 Hermetic: `tests/test_build.py` fabricates a raw tree in `tmp_path`.
+
+## Automation & status
+
+<!-- BEGIN GENERATED: status -->
+
+| workflow | schedule | last run |
+|---|---|---|
+| [![orphan_scripts.yml](https://github.com/sportsdataverse/ncaa-mfb-football-data/actions/workflows/orphan_scripts.yml/badge.svg)](https://github.com/sportsdataverse/ncaa-mfb-football-data/actions/workflows/orphan_scripts.yml) | on push / PR / dispatch | 2026-08-24 |
+| [![tests.yml](https://github.com/sportsdataverse/ncaa-mfb-football-data/actions/workflows/tests.yml/badge.svg)](https://github.com/sportsdataverse/ncaa-mfb-football-data/actions/workflows/tests.yml) | on push / PR / dispatch | 2026-08-24 |
+
+| release tag | assets | size | last publish |
+|---|---:|---:|---|
+| [`ncaa_mfb_teams`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mfb_teams) | 39 | 0.1 MB | 2026-08-24 |
+| [`ncaa_mfb_schedule`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mfb_schedule) | 39 | 2.2 MB | 2026-08-24 |
+| [`ncaa_mfb_rosters`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mfb_rosters) | 39 | 18.5 MB | 2026-08-24 |
+| [`ncaa_mfb_pbp`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mfb_pbp) | 39 | 388.6 MB | 2026-08-24 |
+| [`ncaa_mfb_pbp_cfbfastr`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mfb_pbp_cfbfastr) | 39 | 760.7 MB | 2026-08-24 |
+| [`ncaa_mfb_team_stats`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mfb_team_stats) | 39 | 78.1 MB | 2026-08-24 |
+| [`ncaa_mfb_player_stats`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mfb_player_stats) | 39 | 30.3 MB | 2026-08-24 |
+| [`ncaa_mfb_drives`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mfb_drives) | 39 | 21.1 MB | 2026-08-24 |
+| [`ncaa_mfb_officials`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mfb_officials) | 39 | 1.9 MB | 2026-08-24 |
+| [`ncaa_mfb_linescore`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mfb_linescore) | 39 | 2.9 MB | 2026-08-24 |
+
+<!-- END GENERATED: status -->
