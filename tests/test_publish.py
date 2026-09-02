@@ -15,6 +15,10 @@ from ncaa_mfb_data_build.publish import DEFAULT_REPO, publish_dataset
 _SPEC = REGISTRY["pbp"]
 
 
+#: release metadata sidecars -- asserted separately, not a data asset
+SIDECARS = ("timestamp.", "package_function.")
+
+
 def _stage(tmp_path: Path) -> None:
     pq_dir = tmp_path / "mfb" / "pbp" / "parquet"
     pq_dir.mkdir(parents=True)
@@ -40,7 +44,11 @@ def test_publish_creates_release_when_absent(tmp_path: Path):
     )
 
     creates = [c for c in calls if c[:2] == ["release", "create"]]
-    uploads = [c for c in calls if c[:2] == ["release", "upload"]]
+    uploads = [
+        c
+        for c in calls
+        if c[:2] == ["release", "upload"] and not Path(c[3]).name.startswith(SIDECARS)
+    ]
     assert len(creates) == 1
     assert creates[0][2] == "ncaa_mfb_pbp"
     assert "--repo" in creates[0] and DEFAULT_REPO in creates[0]
@@ -69,7 +77,12 @@ def test_publish_skips_create_when_release_present(tmp_path: Path):
     )
 
     assert not any(c[:2] == ["release", "create"] for c in calls)
-    assert sum(1 for c in calls if c[:2] == ["release", "upload"]) == 3
+    data_uploads = [
+        c
+        for c in calls
+        if c[:2] == ["release", "upload"] and not Path(c[3]).name.startswith(SIDECARS)
+    ]
+    assert len(data_uploads) == 3
 
 
 def test_publish_dry_run_makes_no_calls(tmp_path: Path):
@@ -105,7 +118,11 @@ def test_publish_only_parquet_staged_uploads_one_file(tmp_path: Path):
         make_rds=False,
     )
 
-    uploads = [c for c in calls if c[:2] == ["release", "upload"]]
+    uploads = [
+        c
+        for c in calls
+        if c[:2] == ["release", "upload"] and not Path(c[3]).name.startswith(SIDECARS)
+    ]
     assert len(uploads) == 1
     assert result["uploaded"] == 1
 
@@ -141,7 +158,11 @@ def test_publish_make_rds_stages_and_uploads_rds(tmp_path: Path, monkeypatch):
 
     rds_path = tmp_path / "mfb" / "_release_build" / "pbp" / "ncaa_mfb_pbp_2026.rds"
     assert rds_path.exists()
-    uploads = [c for c in calls if c[:2] == ["release", "upload"]]
+    uploads = [
+        c
+        for c in calls
+        if c[:2] == ["release", "upload"] and not Path(c[3]).name.startswith(SIDECARS)
+    ]
     assert len(uploads) == 2
     assert result["uploaded"] == 2
 
@@ -165,7 +186,11 @@ def test_publish_make_rds_failure_still_uploads_parquet(tmp_path: Path, monkeypa
         make_rds=True,
     )
 
-    uploads = [c for c in calls if c[:2] == ["release", "upload"]]
+    uploads = [
+        c
+        for c in calls
+        if c[:2] == ["release", "upload"] and not Path(c[3]).name.startswith(SIDECARS)
+    ]
     assert len(uploads) == 1
     assert result["uploaded"] == 1
 
@@ -191,18 +216,14 @@ class _Proc:
 def test_published_assets_parses_names(monkeypatch):
     from ncaa_mfb_data_build import publish as P
 
-    monkeypatch.setattr(
-        P.subprocess, "run", lambda *a, **k: _Proc(0, "a.parquet\na.csv.gz\n")
-    )
+    monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(0, "a.parquet\na.csv.gz\n"))
     assert P.published_assets("t") == {"a.parquet", "a.csv.gz"}
 
 
 def test_published_assets_empty_only_for_confirmed_missing(monkeypatch):
     from ncaa_mfb_data_build import publish as P
 
-    monkeypatch.setattr(
-        P.subprocess, "run", lambda *a, **k: _Proc(1, "", "release not found")
-    )
+    monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(1, "", "release not found"))
     assert P.published_assets("t") == set()
 
 
@@ -245,9 +266,7 @@ def test_release_exists_assumes_present_when_gh_cannot_answer(monkeypatch):
     monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(3221225794))
     assert P._gh_release_exists("t", DEFAULT_REPO) is True
 
-    monkeypatch.setattr(
-        P.subprocess, "run", lambda *a, **k: _Proc(1, "", "release not found")
-    )
+    monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(1, "", "release not found"))
     assert P._gh_release_exists("t", DEFAULT_REPO) is False
 
 
@@ -277,7 +296,10 @@ def test_uploads_use_the_long_timeout(tmp_path: Path, monkeypatch):
     seen: "list[int]" = []
 
     def _fake_run(argv, **kw):
-        if "upload" in argv:
+        # the long bound is about a 100MB+ data asset on a slow link; the
+        # ~50-byte release sidecars run on the short metadata bound and would
+        # otherwise read as a violation of it
+        if "upload" in argv and not any(Path(a).name.startswith(SIDECARS) for a in argv):
             seen.append(kw.get("timeout"))
 
         class _R:
@@ -286,8 +308,6 @@ def test_uploads_use_the_long_timeout(tmp_path: Path, monkeypatch):
         return _R()
 
     monkeypatch.setattr(P.subprocess, "run", _fake_run)
-    P.publish_dataset(
-        _SPEC, 2026, base=tmp_path, exists_check=lambda *_: True, make_rds=False
-    )
+    P.publish_dataset(_SPEC, 2026, base=tmp_path, exists_check=lambda *_: True, make_rds=False)
     assert seen, "no upload was attempted"
     assert all(t == P._GH_UPLOAD_TIMEOUT for t in seen), seen

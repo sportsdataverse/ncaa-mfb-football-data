@@ -80,3 +80,29 @@ REGISTRY: dict[str, DatasetSpec] = {
 
 def raw_root() -> Path:
     return Path(os.environ.get(RAW_ROOT_ENV) or DEFAULT_RAW_ROOT)
+
+
+# --- release sidecar metadata -------------------------------------------------
+# Every published tag carries package_function.txt/.json -- the half of R's
+# sportsdataverse_save() the Python publisher used to drop. These tags have no
+# reader in any package yet (no hoopR/cfbfastR loader, and nothing in sdv-py's
+# releases.yaml), so rather than invent a loader name that would 404 for a
+# consumer, each names the producer stage that writes it -- the same convention
+# the ncaa_*_rapm tags already carry on their published sidecars.
+#
+# When sdv-py grows load_ncaa_mfb_* loaders, swap these for the loader names.
+#
+# Keyed by tag. The publish tests assert every REGISTRY tag has an entry, so a
+# new dataset cannot ship an unnamed tag.
+PKG_FUNCTION: dict[str, str] = {
+    TAG_PREFIX + "teams": "python/ncaa_mfb_01_teams_creation.py",
+    TAG_PREFIX + "schedule": "python/ncaa_mfb_02_schedule_creation.py",
+    TAG_PREFIX + "rosters": "python/ncaa_mfb_03_rosters_creation.py",
+    TAG_PREFIX + "pbp": "python/ncaa_mfb_04_pbp_creation.py",
+    TAG_PREFIX + "pbp_cfbfastr": "python/ncaa_mfb_05_pbp_cfbfastr_creation.py",
+    TAG_PREFIX + "team_stats": "python/ncaa_mfb_06_team_stats_creation.py",
+    TAG_PREFIX + "player_stats": "python/ncaa_mfb_07_player_stats_creation.py",
+    TAG_PREFIX + "drives": "python/ncaa_mfb_08_drives_creation.py",
+    TAG_PREFIX + "officials": "python/ncaa_mfb_09_officials_creation.py",
+    TAG_PREFIX + "linescore": "python/ncaa_mfb_10_linescore_creation.py",
+}
