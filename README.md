@@ -238,6 +238,29 @@ ncaa-mfb-football-data/
 
 <!-- END GENERATED: status -->
 
+### Why there is no build cron
+
+Neither workflow above builds or publishes — they are CI only (tests +
+orphan-scripts). That is deliberate, not an oversight:
+
+- **The build needs two checkouts.** `ncaa_mfb_data_build` reads its input from a
+  sibling `ncaa-mfb-football-raw` working copy via `NCAA_MFB_RAW_ROOT`
+  (`config.DEFAULT_RAW_ROOT` walks up to `../ncaa-mfb-football-raw`), so it cannot
+  run in CI without a cross-repo checkout step this repo does not have.
+- **The upstream is manual too.** `ncaa-mfb-football-raw` has no scrape workflow
+  either, and its scraper targets `stats.ncaa.org`, whose proxy budget is
+  currently exhausted. A cron here would recompile the same committed raw JSON on
+  a schedule and publish an identical release every night.
+
+So the release tags above move only when someone runs the pipeline by hand, and a
+scheduled producer will never correct their release metadata. The
+`timestamp.*` / `package_function.*` sidecars for these ten tags were therefore
+back-filled once, each stamped with the `updated_at` of its own newest asset
+rather than the time of the back-fill.
+
+If this repo ever gets a build workflow, it needs the sibling-raw checkout (or an
+input contract that does not depend on one) before a cron is worth adding.
+
 ## Consumers
 
 The packages that read what this repo produces:
