@@ -9,8 +9,12 @@ name: Update NCAA MFB Data
 # No cron: the raw repo pushes only when its daily capture finds something, so a
 # schedule here would republish identical assets.
 #
-# Serialize everything that commits to this repo; queue, never cancel -- a run
-# cancelled mid-upload leaves a tag half-updated.
+# Serialize everything that commits to this repo. cancel-in-progress is false
+# because a run cancelled mid-upload leaves a tag half-updated -- but GitHub keeps
+# only ONE pending run per group: a newer event replaces (cancels) a queued one.
+# A queued daily rebuild is harmless to lose (the next raw push re-dispatches it);
+# a hand-started backfill is not -- start one while nothing else is running, and
+# re-run it if it shows "cancelled".
 concurrency:
   group: ${{ github.repository }}-commit
   cancel-in-progress: false
@@ -89,6 +93,18 @@ jobs:
           end=$(printf '%s' "$COMMIT_MESSAGE"   | grep -oP 'End:\s*\K[0-9]{4}'   | head -1 || true)
           echo "START_YEAR=$start" >> "$GITHUB_ENV"
           echo "END_YEAR=$end"     >> "$GITHUB_ENV"
+
+      # Read the raw repo at the commit that dispatched this run, not `main`:
+      # raw.githubusercontent serves `main` with max-age=300, so a run starting
+      # right after a push could build from the previous capture.
+      - name: Pin the raw root to the dispatching commit
+        if: ${{ github.event.client_payload.event_name == 'daily_ncaa_mfb_data' }}
+        env:
+          RAW_SHA: ${{ github.event.client_payload.sha }}
+        run: |
+          if printf '%s' "$RAW_SHA" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "NCAA_MFB_RAW_ROOT=https://raw.githubusercontent.com/sportsdataverse/ncaa-mfb-football-raw/$RAW_SHA" >> "$GITHUB_ENV"
+          fi
 
       - name: Default year inputs if empty
         if: ${{ env.START_YEAR == '' }}

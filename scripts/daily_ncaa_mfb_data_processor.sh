@@ -42,6 +42,9 @@ sdv_commit_push() {
   for attempt in 1 2 3; do
     if git push -q origin HEAD; then echo "pushed: $msg (attempt $attempt)"; return 0; fi
     echo "push rejected (attempt $attempt); syncing with origin"
+    # Rebasing a feature branch (a hand dispatch from one) onto main can never
+    # fast-forward; fail now instead of three times.
+    [ "$(git branch --show-current)" = main ] || { echo "::error ::push rejected off main: $msg"; return 1; }
     git fetch --quiet origin main || true
     if ! git rebase --merge origin/main >/dev/null; then
       git rebase --abort >/dev/null 2>&1 || true

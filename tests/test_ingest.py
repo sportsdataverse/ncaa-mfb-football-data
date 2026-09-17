@@ -10,6 +10,7 @@ import gzip
 from pathlib import Path
 
 import polars as pl
+import pytest
 from test_build import AY, SEASON, _raw_tree
 
 from ncaa_mfb_data_build import ingest
@@ -19,10 +20,12 @@ from ncaa_mfb_data_build.cli import main
 BASE = "https://raw.example.test/ncaa-mfb-football-raw/main"
 
 
-def _served(raw: Path, calls: "list[str] | None" = None):
+def _served(raw: Path, calls: "list[str] | None" = None, fail: "tuple[str, ...]" = ()):
     def get(url: str) -> "bytes | None":
         if calls is not None:
             calls.append(url)
+        if url.endswith(fail):
+            raise ingest.FetchError(f"{url}: HTTP 503")
         f = raw / url.removeprefix(BASE + "/")
         return f.read_bytes() if f.is_file() else None
 
@@ -88,3 +91,44 @@ def test_stale_reference_file_does_not_survive_a_miss(tmp_path) -> None:
     ingest.mirror_season(BASE, SEASON, cache, downloader=_served(raw))
 
     assert not (cache / f"mfb/rosters/parquet/{AY}.parquet").exists()
+
+
+def test_failed_payload_fetch_fails_the_season_not_just_the_game(tmp_path, monkeypatch) -> None:
+    raw = _https_raw(tmp_path)
+    monkeypatch.setattr(ingest, "_default_downloader", _served(raw, fail=("json/2.json.gz",)))
+    monkeypatch.setenv("NCAA_MFB_CACHE", str(tmp_path / "cache"))
+
+    with pytest.raises(ingest.FetchError, match="1 payload fetch"):
+        main(["build", "--dataset", "pbp", "--season", str(SEASON),
+              "--base", str(tmp_path / "data"), "--raw-root", BASE])  # fmt: skip
+    assert not (tmp_path / "data/mfb/pbp").exists()  # nothing built, nothing to publish
+
+
+def test_failed_reference_fetch_is_fatal(tmp_path) -> None:
+    raw = _https_raw(tmp_path)
+    with pytest.raises(ingest.FetchError):
+        ingest.mirror_season(
+            BASE, SEASON, tmp_path / "cache", downloader=_served(raw, fail=(f"{AY}_div11.parquet",))
+        )
+
+
+def test_default_downloader_separates_404_from_failure(monkeypatch) -> None:
+    import types
+
+    from sportsdataverse import dl_utils
+    from sportsdataverse.errors import NoDataError
+
+    def fake(outcome):
+        def download(**_):
+            if isinstance(outcome, Exception):
+                raise outcome
+            return types.SimpleNamespace(status_code=outcome, content=b"x")
+
+        return download
+
+    monkeypatch.setattr(dl_utils, "download", fake(NoDataError("404")))
+    assert ingest._default_downloader(BASE + "/mfb/json/1.json.gz") is None
+    for outcome in (ConnectionError("reset"), 503):
+        monkeypatch.setattr(dl_utils, "download", fake(outcome))
+        with pytest.raises(ingest.FetchError):
+            ingest._default_downloader(BASE + "/mfb/json/1.json.gz")
