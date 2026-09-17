@@ -98,13 +98,15 @@ def _build(args: argparse.Namespace) -> int:
     raw = ingest.mirror_season(raw, args.season) if ingest.is_url(raw) else Path(raw)
     base = Path(args.base)
     names = list(REGISTRY) if args.dataset == "all" else [args.dataset]
+    # Build EVERY dataset before uploading any: a builder failing partway must not
+    # leave the season half-published (new pbp beside last week's drives).
     for name in names:
-        spec = REGISTRY[name]
-        build_dataset(spec, args.season, base, raw, release=args.publish or args.dry_run)
-        if args.publish or args.dry_run:
-            from ncaa_mfb_data_build import publish
+        build_dataset(REGISTRY[name], args.season, base, raw, release=args.publish or args.dry_run)
+    if args.publish or args.dry_run:
+        from ncaa_mfb_data_build import publish
 
-            publish.publish_dataset(spec, args.season, base=base, dry_run=args.dry_run)
+        for name in names:
+            publish.publish_dataset(REGISTRY[name], args.season, base=base, dry_run=args.dry_run)
     if args.dataset == "all":
         _write_qa(args.season, base)
     return 0

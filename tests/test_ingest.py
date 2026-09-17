@@ -132,3 +132,22 @@ def test_default_downloader_separates_404_from_failure(monkeypatch) -> None:
         monkeypatch.setattr(dl_utils, "download", fake(outcome))
         with pytest.raises(ingest.FetchError):
             ingest._default_downloader(BASE + "/mfb/json/1.json.gz")
+
+
+def test_plaintext_raw_root_is_rejected(tmp_path) -> None:
+    with pytest.raises(ValueError, match="https"):
+        ingest.mirror_season("http://raw.example.test/x/main", SEASON, tmp_path, downloader=None)
+
+
+def test_a_failed_build_publishes_nothing(tmp_path, monkeypatch) -> None:
+    from ncaa_mfb_data_build import publish
+
+    raw = _https_raw(tmp_path)
+    (raw / f"mfb/rosters/parquet/{AY}.parquet").unlink()  # 3rd dataset in build order fails
+    uploads: "list[str]" = []
+    monkeypatch.setattr(publish, "publish_dataset", lambda spec, *a, **k: uploads.append(spec.name))
+
+    with pytest.raises(FileNotFoundError):
+        main(["build", "--dataset", "all", "--season", str(SEASON), "--publish",
+              "--base", str(tmp_path / "data"), "--raw-root", str(raw)])  # fmt: skip
+    assert uploads == []  # teams + schedule built fine, yet nothing went up

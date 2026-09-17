@@ -128,6 +128,9 @@ def mirror_season(
     loudly for that dataset exactly as it would against a checkout. A FAILED fetch
     of any file raises :class:`FetchError` (payloads after every game is tried).
     """
+    if not base_url.startswith("https://"):
+        # the bytes become published data; plaintext transport lets anyone on path edit them
+        raise ValueError(f"raw root must be https, got {base_url!r}")
     get = downloader or _default_downloader
     root = Path(cache or os.environ.get(CACHE_ENV) or DEFAULT_CACHE)
     base_url = base_url.rstrip("/")

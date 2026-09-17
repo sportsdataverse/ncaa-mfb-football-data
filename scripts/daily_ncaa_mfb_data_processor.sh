@@ -26,8 +26,13 @@ while [ $# -gt 0 ]; do
     *) echo "usage: $0 -s <start> [-e <end>] [--no-publish|--dry-run]" >&2; exit 2;;
   esac
 done
-[ -n "$START_YEAR" ] || { echo "usage: $0 -s <start> [-e <end>]" >&2; exit 2; }
 END_YEAR=${END_YEAR:-$START_YEAR}
+# `seq 2026 2025` and a malformed bound both yield an empty loop -- a green run
+# that built nothing.
+if ! [[ "$START_YEAR" =~ ^[0-9]{4}$ && "$END_YEAR" =~ ^[0-9]{4}$ ]] || [ "$START_YEAR" -gt "$END_YEAR" ]; then
+  echo "usage: $0 -s <start> [-e <end>]  (4-digit years, start <= end; got '$START_YEAR'..'$END_YEAR')" >&2
+  exit 2
+fi
 
 export NCAA_MFB_RAW_ROOT="${NCAA_MFB_RAW_ROOT:-https://raw.githubusercontent.com/sportsdataverse/ncaa-mfb-football-raw/main}"
 export PYTHONUNBUFFERED=1
@@ -71,10 +76,12 @@ for i in $(seq "$START_YEAR" "$END_YEAR"); do
   echo "season $i build EXIT=$rc" | tee -a "$LOGFILE"
   [ "$rc" = "0" ] || ANY_FAILED=1
 
-  # Commit whatever built, even after a partial failure: the parquet already on
-  # the release must not be missing from the repo mirror. Load-bearing subject --
-  # downstream tooling parses the years out of it.
-  if [ -n "$PUBLISH" ] && [ "$PUBLISH" != "--dry-run" ]; then
+  # Commit only a season that built AND published cleanly: a failed build uploads
+  # nothing (cli builds every dataset before publishing any), and its partial
+  # parquet must not reach the repo either. A failure during upload can leave the
+  # release a step ahead of the repo until the next clean run re-commits.
+  # Load-bearing subject -- downstream tooling parses the years out of it.
+  if [ "$rc" = "0" ] && [ -n "$PUBLISH" ] && [ "$PUBLISH" != "--dry-run" ]; then
     sdv_commit_push "NCAA MFB Data Update (Start: $i End: $i)" mfb 2>&1 | tee -a "$LOGFILE"
     [ "${PIPESTATUS[0]}" = "0" ] || ANY_FAILED=1
   fi
