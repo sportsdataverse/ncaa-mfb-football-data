@@ -1,0 +1,113 @@
+name: Update NCAA MFB Data
+
+# Rebuild + publish the season the raw repo just captured. Reads
+# ncaa-mfb-football-raw over raw.githubusercontent.com (never a clone) and
+# publishes every ncaa_mfb_* tag on sportsdataverse-data. Fired by:
+#   - repository_dispatch from ncaa-mfb-football-raw's ncaa_mfb_data_trigger.yml
+#     on every raw push (season range parsed from the forwarded commit subject);
+#   - workflow_dispatch with an explicit range (backfills, re-publishes).
+# No cron: the raw repo pushes only when its daily capture finds something, so a
+# schedule here would republish identical assets.
+#
+# Serialize everything that commits to this repo; queue, never cancel -- a run
+# cancelled mid-upload leaves a tag half-updated.
+concurrency:
+  group: ${{ github.repository }}-commit
+  cancel-in-progress: false
+
+on:
+  repository_dispatch:
+    types: [daily_ncaa_mfb_data]
+  workflow_dispatch:
+    inputs:
+      start_year:
+        description: 'Start season, STARTING year (2026 = fall 2026; default: current)'
+        required: false
+        type: string
+      end_year:
+        description: 'End season (default: same as start)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  update_ncaa_mfb_data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    name: Update NCAA MFB Data ${{ inputs.start_year }}-${{ inputs.end_year }}
+    env:
+      START_YEAR: ${{ inputs.start_year }}
+      END_YEAR: ${{ inputs.end_year }}
+    steps:
+      # Branch TIP, not github.sha: a dispatch's sha is frozen at event time, so a
+      # run queued behind the concurrency group would build on a stale tree and
+      # lose its push (nfl-ngs-data, red daily 2026-09-10..14).
+      #
+      # Sparse + blobless: the committed mfb/ parquet tree is 1.3 GB and a build
+      # rewrites one season of it. Every season's parquet is excluded here and the
+      # target seasons are added back below, once the range is known.
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'repository_dispatch' && 'main' || github.ref }}
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/mfb/*/parquet/
+
+      - name: Set up uv + Python
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          python-version: '3.12'
+          cache-dependency-glob: uv.lock
+
+      - name: Install
+        run: uv sync --frozen
+
+      # rds assets are converted by Rscript + arrow (rds.py); without R the
+      # publisher skips them with a warning and the tag drifts from its 13 seasons.
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+
+      - name: Install R arrow
+        run: Rscript -e 'install.packages("arrow")'
+
+      - name: Extract years from the raw repo's dispatch
+        if: ${{ github.event.client_payload.event_name == 'daily_ncaa_mfb_data' }}
+        env:
+          COMMIT_MESSAGE: ${{ github.event.client_payload.commit_message }}
+        run: |
+          # Anchored to the canonical "MFB Raw Update (Start: YYYY End: YYYY)"
+          # subject (STARTING years) so embedded numbers elsewhere cannot shadow
+          # them. A code-change push carries no such tokens -> current season.
+          start=$(printf '%s' "$COMMIT_MESSAGE" | grep -oP 'Start:\s*\K[0-9]{4}' | head -1 || true)
+          end=$(printf '%s' "$COMMIT_MESSAGE"   | grep -oP 'End:\s*\K[0-9]{4}'   | head -1 || true)
+          echo "START_YEAR=$start" >> "$GITHUB_ENV"
+          echo "END_YEAR=$end"     >> "$GITHUB_ENV"
+
+      - name: Default year inputs if empty
+        if: ${{ env.START_YEAR == '' }}
+        run: |
+          y=$(uv run --no-sync python -c 'from sportsdataverse.cfb import most_recent_cfb_season as m; print(m())')
+          echo "START_YEAR=$y" >> "$GITHUB_ENV"
+          echo "END_YEAR=$y"   >> "$GITHUB_ENV"
+
+      - name: Check out the target seasons' parquet
+        run: |
+          for y in $(seq "$START_YEAR" "${END_YEAR:-$START_YEAR}"); do
+            git sparse-checkout add "/mfb/*/parquet/*_${y}.parquet"
+          done
+          git config --local user.email "action@github.com"
+          git config --local user.name "Github Action"
+
+      - name: Build + publish ${{ env.START_YEAR }}-${{ env.END_YEAR }}
+        env:
+          GH_TOKEN: ${{ secrets.SDV_GH_TOKEN }}   # gh release upload to sportsdataverse-data
+          SDV_VENV_PYTHON: .venv/bin/python
+          SDV_PY_HTTP_TIMEOUT: '30'
+        run: bash scripts/daily_ncaa_mfb_data_processor.sh -s "$START_YEAR" -e "${END_YEAR:-$START_YEAR}"

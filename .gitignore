@@ -13,3 +13,4 @@ mfb/_release_build/
 
 # Agent tooling state, never source.
 .omc/
+.ncaa_mfb_raw_cache/
