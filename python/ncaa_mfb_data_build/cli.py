@@ -92,16 +92,21 @@ def build_dataset(
 
 
 def _build(args: argparse.Namespace) -> int:
-    raw = Path(args.raw_root) if args.raw_root else raw_root()
+    from ncaa_mfb_data_build import ingest
+
+    raw = args.raw_root or raw_root()
+    raw = ingest.mirror_season(raw, args.season) if ingest.is_url(raw) else Path(raw)
     base = Path(args.base)
     names = list(REGISTRY) if args.dataset == "all" else [args.dataset]
+    # Build EVERY dataset before uploading any: a builder failing partway must not
+    # leave the season half-published (new pbp beside last week's drives).
     for name in names:
-        spec = REGISTRY[name]
-        build_dataset(spec, args.season, base, raw, release=args.publish or args.dry_run)
-        if args.publish or args.dry_run:
-            from ncaa_mfb_data_build import publish
+        build_dataset(REGISTRY[name], args.season, base, raw, release=args.publish or args.dry_run)
+    if args.publish or args.dry_run:
+        from ncaa_mfb_data_build import publish
 
-            publish.publish_dataset(spec, args.season, base=base, dry_run=args.dry_run)
+        for name in names:
+            publish.publish_dataset(REGISTRY[name], args.season, base=base, dry_run=args.dry_run)
     if args.dataset == "all":
         _write_qa(args.season, base)
     return 0
@@ -195,7 +200,7 @@ def main(argv: "list[str] | None" = None) -> int:
     b.add_argument(
         "--raw-root",
         default=None,
-        help=f"override ${'NCAA_MFB_RAW_ROOT'} / ../ncaa-mfb-football-raw",
+        help="checkout path or https base (overrides $NCAA_MFB_RAW_ROOT / ../ncaa-mfb-football-raw)",
     )
     g = b.add_mutually_exclusive_group()
     g.add_argument("--publish", action="store_true", help="upload parquet+csv+rds to the release")

@@ -94,32 +94,30 @@ build order, not run order.
 ## Input contract
 
 This repo consumes the committed output of
-[`ncaa-mfb-football-raw`](https://github.com/sportsdataverse/ncaa-mfb-football-raw)
-(its stage 05, `mfb_datasets.py` — fully offline, parsing via sdv-py
-`cfb_ncaa_pbp` / `cfb_ncaa_box`), read from the sibling checkout
-`../ncaa-mfb-football-raw` or `NCAA_MFB_RAW_ROOT`:
+[`ncaa-mfb-football-raw`](https://github.com/sportsdataverse/ncaa-mfb-football-raw):
+its reference parquet (stage 05) and its parsed + ESPN-enriched per-game payloads
+(stage 03, parsing via sdv-py `cfb_ncaa_pbp` / `cfb_ncaa_box`).
+`NCAA_MFB_RAW_ROOT` is either a checkout (local default `../ncaa-mfb-football-raw`)
+or an https base. On CI it is the raw repo's `raw.githubusercontent.com` base:
+`ingest.mirror_season` fetches exactly one season's files (games enumerated from
+the schedule parquet's `contest_id`, never a directory listing) into the
+gitignored `.ncaa_mfb_raw_cache/`. The raw repo is never cloned.
 
 | raw path (`{ay}` = ENDING academic year) | release dataset |
 | --- | --- |
 | `mfb/teams/parquet/{ay}_div{11,12}.parquet` | `teams` (concat; `division` 11=FBS, 12=FCS) |
 | `mfb/schedules/parquet/{ay}.parquet` | `schedule` (one row per team-game, `contest_id`) |
 | `mfb/rosters/parquet/{ay}.parquet` | `rosters` (stats.ncaa.org `player_id`) |
-| `mfb/datasets/{ay}/pbp.parquet` | `pbp` (structural NCAA pbp) |
-| `mfb/datasets/{ay}/pbp_cfbfastr.parquet` | `pbp_cfbfastr` (cfbfastR-named play frame) |
-| `mfb/datasets/{ay}/team_stats.parquet` | `team_stats` |
-| `mfb/datasets/{ay}/player_stats_{cat}.parquet` | `player_stats` (diagonal concat, `category` from filename) |
-| `mfb/datasets/{ay}/drives.parquet` | `drives` |
-| `mfb/datasets/{ay}/officials.parquet` | `officials` |
-| `mfb/datasets/{ay}/linescore.parquet` | `linescore` |
+| `mfb/json/{contest_id}.json.gz` (per game) | `pbp`, `pbp_cfbfastr` (via sdv-py `to_cfbfastr`), `team_stats`, `player_stats` (`category` from the payload key), `drives`, `officials`, `linescore` |
 
 `contest_id` / `team_id` / `player_id` are NCAA **string** ids and stay `Utf8`.
-`mfb/datasets/{ay}/qa_pbp_vs_linescore.parquet` is a raw-side QA artifact and
-is not released.
+`mfb/qa/qa_pbp_vs_linescore_{season}.parquet` (final-score QA, built here with
+`--dataset all`) is committed but not released.
 
 **Season convention: STARTING year** — the football standard (cfbfastR / cfb /
 nfl): `season = 2025` is the fall-2025 season, `2026` is the season kicking off
 in fall 2026. The raw tree is keyed by stats.ncaa.org's ENDING academic year
-(`mfb/datasets/{ay}/`, ay = season + 1); this build is the ONLY place that
+(`mfb/*/parquet/{ay}*`, ay = season + 1); this build is the ONLY place that
 re-keys, so the two conventions never mix downstream.
 
 ## Output contract
@@ -134,6 +132,19 @@ re-keys, so the two conventions never mix downstream.
   create-if-missing, `GhUnavailable` resume semantics).
 
 ## Run order
+
+In season this runs itself: every push to `ncaa-mfb-football-raw` (its daily
+droplet capture) dispatches `.github/workflows/daily_ncaa_mfb_data.yml`, which runs
+the processor for the season named in the raw commit subject:
+
+```bash
+bash scripts/daily_ncaa_mfb_data_processor.sh -s 2026            # build + publish + commit, raw over https
+bash scripts/daily_ncaa_mfb_data_processor.sh -s 2026 --dry-run  # stage release assets, upload nothing
+NCAA_MFB_RAW_ROOT=../ncaa-mfb-football-raw bash scripts/daily_ncaa_mfb_data_processor.sh -s 2026 --no-publish
+tail -f logs/ncaa_mfb_data_2026.log                              # live watch
+```
+
+By hand:
 
 ```bash
 uv sync --frozen
@@ -150,9 +161,10 @@ bash scripts/run_historical_publish.sh                 # 2025 down to 2013
 uv run python -m ncaa_mfb_data_build check
 ```
 
-Offline; `NCAA_MFB_RAW_ROOT` defaults to `../ncaa-mfb-football-raw`. Backfill
-= the same command with another `--season` (the raw repo must hold that
-`mfb/datasets/{ay}/` first — see its RUNBOOK).
+`NCAA_MFB_RAW_ROOT` defaults to `../ncaa-mfb-football-raw` for these. Backfill
+= the same command with another `--season` (the raw repo must hold that season's
+reference parquet and parsed payloads first — see its RUNBOOK). A whole range on
+CI: run `daily_ncaa_mfb_data.yml` by hand with `start_year` / `end_year`.
 
 ## Tests
 
@@ -238,28 +250,23 @@ ncaa-mfb-football-data/
 
 <!-- END GENERATED: status -->
 
-### Why there is no build cron
+### How a season gets published
 
-Neither workflow above builds or publishes — they are CI only (tests +
-orphan-scripts). That is deliberate, not an oversight:
+`ncaa-mfb-football-raw`'s daily droplet cron captures, builds its reference
+frames and crosswalk, parses, and pushes one `MFB Raw Update (Start: Y End: Y)`
+commit. Its `ncaa_mfb_data_trigger.yml` forwards that subject as a
+`repository_dispatch` (`daily_ncaa_mfb_data`), and `daily_ncaa_mfb_data.yml` here
+rebuilds season `Y` from the raw repo over https and publishes it.
 
-- **The build needs two checkouts.** `ncaa_mfb_data_build` reads its input from a
-  sibling `ncaa-mfb-football-raw` working copy via `NCAA_MFB_RAW_ROOT`
-  (`config.DEFAULT_RAW_ROOT` walks up to `../ncaa-mfb-football-raw`), so it cannot
-  run in CI without a cross-repo checkout step this repo does not have.
-- **The upstream is manual too.** `ncaa-mfb-football-raw` has no scrape workflow
-  either, and its scraper targets `stats.ncaa.org`, whose proxy budget is
-  currently exhausted. A cron here would recompile the same committed raw JSON on
-  a schedule and publish an identical release every night.
+There is deliberately **no cron** here: the raw repo pushes when its capture moves,
+so a schedule would only republish identical assets. Until 2026-09-17 there was no
+workflow at all. The build could only read a sibling raw checkout, and publishing
+was manual. Fall 2026 sat unpublished for that reason until the https input path
+and the dispatch chain landed.
 
-So the release tags above move only when someone runs the pipeline by hand, and a
-scheduled producer will never correct their release metadata. The
-`timestamp.*` / `package_function.*` sidecars for these ten tags were therefore
+The `timestamp.*` / `package_function.*` sidecars for the 2013–2025 seasons were
 back-filled once, each stamped with the `updated_at` of its own newest asset
 rather than the time of the back-fill.
-
-If this repo ever gets a build workflow, it needs the sibling-raw checkout (or an
-input contract that does not depend on one) before a cron is worth adding.
 
 ## Consumers
 

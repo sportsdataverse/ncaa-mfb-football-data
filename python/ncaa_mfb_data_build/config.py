@@ -18,9 +18,15 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-#: Sibling ncaa-mfb-football-raw checkout root (the ONLY input of this repo).
+#: The ONLY input of this repo: a sibling ncaa-mfb-football-raw checkout (local
+#: default) or, on CI, the raw repo over HTTPS (``RAW_URL``) -- never a clone.
 RAW_ROOT_ENV = "NCAA_MFB_RAW_ROOT"
 DEFAULT_RAW_ROOT = Path(__file__).resolve().parents[3] / "ncaa-mfb-football-raw"
+RAW_URL = "https://raw.githubusercontent.com/sportsdataverse/ncaa-mfb-football-raw/main"
+
+#: Where ``ingest.mirror_season`` materialises an HTTPS season (gitignored).
+CACHE_ENV = "NCAA_MFB_CACHE"
+DEFAULT_CACHE = Path(__file__).resolve().parents[2] / ".ncaa_mfb_raw_cache"
 
 #: Release-tag prefix; also the parquet filename prefix so a downloaded asset
 #: keeps its provenance instead of colliding with another league's pbp_2026.
@@ -78,8 +84,12 @@ REGISTRY: dict[str, DatasetSpec] = {
 }
 
 
-def raw_root() -> Path:
-    return Path(os.environ.get(RAW_ROOT_ENV) or DEFAULT_RAW_ROOT)
+def raw_root() -> "Path | str":
+    """``$NCAA_MFB_RAW_ROOT`` (a path, or an https base) or the sibling checkout."""
+    val = os.environ.get(RAW_ROOT_ENV)
+    if val and val.startswith(("http://", "https://")):
+        return val
+    return Path(val or DEFAULT_RAW_ROOT)
 
 
 # --- release sidecar metadata -------------------------------------------------

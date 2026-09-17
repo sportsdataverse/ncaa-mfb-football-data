@@ -42,11 +42,22 @@ def parsed_path(raw: Path, contest_id: str) -> Path:
 
 
 def season_contest_ids(raw: Path, season: int) -> "list[str]":
-    """Captured contests for a season -- the raw bundle tree is ground truth."""
-    ay_dir = raw / "mfb" / "raw" / str(season + 1)
-    if not ay_dir.is_dir():
+    """Captured contests for a season.
+
+    A checkout's raw bundle tree is ground truth. An HTTPS mirror
+    (:func:`ncaa_mfb_data_build.ingest.mirror_season`) carries no bundles, so it
+    enumerates from the schedule master instead -- a scheduled contest without a
+    parsed payload is then logged and skipped by :func:`iter_payloads`.
+    """
+    ay = season + 1
+    ay_dir = raw / "mfb" / "raw" / str(ay)
+    if ay_dir.is_dir():
+        return sorted(p.name.removesuffix(".json.gz") for p in ay_dir.glob("*.json.gz"))
+    schedule = raw / "mfb" / "schedules" / "parquet" / f"{ay}.parquet"
+    if not schedule.is_file():
         return []
-    return sorted(p.name.removesuffix(".json.gz") for p in ay_dir.glob("*.json.gz"))
+    ids = pl.read_parquet(schedule, columns=["contest_id"]).get_column("contest_id")
+    return sorted(ids.drop_nulls().unique().to_list())
 
 
 def iter_payloads(raw: Path, season: int) -> "Iterator[dict[str, Any]]":
