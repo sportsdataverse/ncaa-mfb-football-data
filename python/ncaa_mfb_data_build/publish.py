@@ -26,11 +26,11 @@ _LEAGUE = "mfb"
 
 DEFAULT_REPO = "sportsdataverse/sportsdataverse-data"
 
-#: Datasets that BUILD but do not upload yet. ``ncaa_mfb_qa`` is new in V2 and
-#: its first publish (a full ``ncaa_mfb_qa_2026``, then the backfill) is its own
-#: deliberate step after this lands -- a release tag created by a cron run is a
-#: tag nobody decided to create. Delete the entry to turn publishing on.
-PUBLISH_HELD: frozenset[str] = frozenset({"qa"})
+#: Datasets that BUILD but do not upload. Held so a release tag is never created
+#: by a cron run nobody decided to run; ``ncaa_mfb_qa`` was held through V2 and
+#: released deliberately for 2026, so the set is empty again. Add a name here to
+#: hold a new dataset's first publish the same way.
+PUBLISH_HELD: frozenset[str] = frozenset()
 
 log = get_logger()
 
