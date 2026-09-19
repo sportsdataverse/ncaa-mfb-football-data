@@ -7,19 +7,25 @@ Two gates, neither of which can fail a build in this revision
   game's slice of ``pbp_cfbfastr``. The mapper output is cfbfastR-shaped, so
   the gate runs with ``league="cfb"`` and ``source="ncaa"``.
 
-  **Only a subset of the rule table is meaningful here.** The stats.ncaa.org
-  mapper emits a 105-column cfbfastR frame, not an ESPN processor frame, so
-  every rule whose columns are absent is skipped rather than failed. What
-  actually evaluates today is the flag family (``flags.rush_and_pass``,
-  ``flags.sack_not_pass``, ``flags.sack_counted_as_pass_attempt``,
-  ``flags.completion_without_attempt``, ``flags.int_without_pass``,
-  ``flags.rush_td_and_pass_td``, ``flags.no_play_yardage_credited``,
-  ``flags.no_play_counted_as_attempt``) and the INFO attribution-coverage rules
-  (``attr.passer`` / ``receiver`` / ``rusher`` / ``interceptor`` / ``punter``).
-  The EP/WP, timeout, score-continuity and box-parity families need columns the
-  mapper does not produce; they will light up as it grows them, with no change
-  here. The older final-score check (``mfb/qa/qa_pbp_vs_linescore_{season}.parquet``,
-  committed and never released) is a different artefact and stays as it is.
+  **Most of the rule table evaluates, and every rule that does not is a
+  declared skip.** The stats.ncaa.org mapper emits a 105-column cfbfastR frame,
+  not an ESPN processor frame, so until sdv-py #556 only the flag family and
+  the attribution INFO rules had their columns -- 13 of 89 -- and the rest
+  skipped silently. #556 gave ``source="ncaa"`` a ``SOURCE_COLUMNS`` alias view
+  (ytg, down, possession, flags, attribution, plays and the score walk derived
+  as identities on the mapper's own columns) plus a ``NOT_APPLICABLE`` table
+  that names, with a reason each, what the source cannot support. Today
+  **42 rules evaluate and 55 are explicitly not applicable** -- 47 at #556, plus
+  the eight V1b ``box.*`` rules scoped by #558 -- with nothing unaccounted for.
+  Not applicable: the seven timeout rules (stats.ncaa.org carries no
+  timeouts-remaining counters), the EP/WP/EPA rules (``to_cfbfastr`` runs no
+  model on this path, by design), the box- and summary-backed rules (no
+  advBoxScore and no ESPN summary), and the ESPN-only fields (type ids,
+  ``statYardage``, ``downDistanceText``). A not-applicable rule is counted in
+  the report's ``n_not_applicable`` and listed in ``not_applicable``; it is
+  never faked into passing. The older final-score check
+  (``mfb/qa/qa_pbp_vs_linescore_{season}.parquet``, committed and never
+  released) is a different artefact and stays as it is.
 * **per season, before publish** -- :func:`drift_findings` compares the finished
   season ``pbp_cfbfastr`` parquet against the **previously published** asset: column set and
   dtypes (``schema_contract``), null-rate rises (``null_rate``), columns that
@@ -51,11 +57,21 @@ SOURCE = "ncaa"
 #: Share of a season's games allowed to carry an ``error`` finding. Seeded from
 #: THIS repo's own measurement rather than the ESPN families': the whole 2025
 #: season off ``ncaa_mfb_pbp_cfbfastr`` on sdv-py ``main`` @1686f904f is
-#: 318/1,685 games error-free (18.9%), so 0.82. One rule accounts for nearly
-#: all of it -- ``flags.no_play_yardage_credited`` on 1,365 games, with
-#: ``flags.int_without_pass`` on 13. Lower it only with a ledger entry as that
-#: rule closes.
-MAX_ERROR_SHARE = 0.82
+#: 318/1,685 games error-free (18.9%), so 0.82. Lower it only with a ledger
+#: entry as the open rules close.
+#:
+#: **Re-seeded 0.82 -> 0.85 from the full 2026 season.** The published
+#: ``ncaa_mfb_qa_2026_summary.json`` (``0.1.4+c9215199``) reads 56/340 games
+#: error-free -- ``error_share`` 0.8353, over 0.82, so ``threshold_exceeded``
+#: was true on a report-only asset. Still one rule family, not noise:
+#: ``flags.no_play_counted_as_attempt`` 334 games,
+#: ``flags.no_play_yardage_credited`` 284, ``flags.int_without_pass`` 1. That
+#: measurement predates #556, which makes 42 rules evaluate instead of 13, so
+#: the next full season will read worse again before it reads better -- re-seed
+#: on that measurement, do not pre-empt it here.
+#: Ledger 2026-09-17 03:35 EDT, "V2 QA assets PUBLISHED", gotcha (3), and
+#: 04:05 EDT, "NCAA-RULES -> PR #556".
+MAX_ERROR_SHARE = 0.85
 
 #: Report-only. The build logs the summary and publishes the asset; it never
 #: fails on QA. Flipping this to ``True`` is the ratchet step, its own PR.
