@@ -81,6 +81,14 @@ REGISTRY: dict[str, DatasetSpec] = {
     "linescore": DatasetSpec(
         "linescore", "datasets/{season}/linescore.parquet", "linescore + game info"
     ),
+    # Built, not re-keyed: one row per game from sportsdataverse.validation.
+    # LAST in the order on purpose -- it reads the pbp_cfbfastr parquet the
+    # stage above wrote, and its drift gate reads that season's finished file.
+    "qa": DatasetSpec(
+        "qa",
+        "",
+        "report-only validation verdict per game + season summary sidecar",
+    ),
 }
 
 
@@ -115,4 +123,5 @@ PKG_FUNCTION: dict[str, str] = {
     TAG_PREFIX + "drives": "python/ncaa_mfb_08_drives_creation.py",
     TAG_PREFIX + "officials": "python/ncaa_mfb_09_officials_creation.py",
     TAG_PREFIX + "linescore": "python/ncaa_mfb_10_linescore_creation.py",
+    TAG_PREFIX + "qa": "python/ncaa_mfb_11_qa_creation.py",
 }

@@ -26,6 +26,12 @@ _LEAGUE = "mfb"
 
 DEFAULT_REPO = "sportsdataverse/sportsdataverse-data"
 
+#: Datasets that BUILD but do not upload yet. ``ncaa_mfb_qa`` is new in V2 and
+#: its first publish (a full ``ncaa_mfb_qa_2026``, then the backfill) is its own
+#: deliberate step after this lands -- a release tag created by a cron run is a
+#: tag nobody decided to create. Delete the entry to turn publishing on.
+PUBLISH_HELD: frozenset[str] = frozenset({"qa"})
+
 log = get_logger()
 
 
@@ -188,6 +194,9 @@ def _dataset_files(spec: DatasetSpec, season: int, base: Path) -> list[Path]:
         base / _LEAGUE / spec.name / "parquet" / f"{spec.tag}_{season}.parquet",
         release_dir / f"{spec.tag}_{season}{CSV_SUFFIX}",
         release_dir / f"{spec.tag}_{season}.rds",
+        # the QA season summary (error-free share + drift findings) is part of
+        # the ncaa_mfb_qa asset, not a build artefact
+        base / _LEAGUE / spec.name / "parquet" / f"{spec.tag}_{season}_summary.json",
     ]
     return [f for f in cands if f.exists()]
 

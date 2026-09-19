@@ -165,6 +165,21 @@ def build_pbp_cfbfastr(season: int, raw: Path) -> pl.DataFrame:
     return pl.concat(frames, how="diagonal_relaxed")
 
 
+def build_validation_qa(season: int, base: Path) -> pl.DataFrame:
+    """Report-only per-game validation rows over the season's built ``pbp_cfbfastr``.
+
+    Reads the parquet the previous stage wrote rather than re-running
+    ``to_cfbfastr``: the gate must judge exactly what is published, and a
+    second mapper pass would double the season's most expensive step.
+    """
+    from ncaa_mfb_data_build import qa
+
+    path = base / "mfb" / "pbp_cfbfastr" / "parquet" / f"ncaa_mfb_pbp_cfbfastr_{season}.parquet"
+    if not path.is_file():
+        raise FileNotFoundError(f"qa {season}: build pbp_cfbfastr first ({path} is missing)")
+    return qa.season_qa_frame(pl.read_parquet(path), processing_version=qa.processing_version())
+
+
 def build_qa(season: int, pbp_cfbfastr: pl.DataFrame, linescore: pl.DataFrame) -> pl.DataFrame:
     """Final-score QA: computed pbp final vs official linescore final.
 
