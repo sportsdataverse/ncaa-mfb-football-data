@@ -59,6 +59,7 @@ flowchart TB;
         B7[python/ncaa_mfb_07_player_stats_creation.py]-->B8[python/ncaa_mfb_08_drives_creation.py];
         B8[python/ncaa_mfb_08_drives_creation.py]-->B9[python/ncaa_mfb_09_officials_creation.py];
         B9[python/ncaa_mfb_09_officials_creation.py]-->B10[python/ncaa_mfb_10_linescore_creation.py];
+        B10[python/ncaa_mfb_10_linescore_creation.py]-->B11[python/ncaa_mfb_11_qa_creation.py];
     end;
 
     subgraph C[sportsdataverse-data Releases];
@@ -109,10 +110,43 @@ gitignored `.ncaa_mfb_raw_cache/`. The raw repo is never cloned.
 | `mfb/schedules/parquet/{ay}.parquet` | `schedule` (one row per team-game, `contest_id`) |
 | `mfb/rosters/parquet/{ay}.parquet` | `rosters` (stats.ncaa.org `player_id`) |
 | `mfb/json/{contest_id}.json.gz` (per game) | `pbp`, `pbp_cfbfastr` (via sdv-py `to_cfbfastr`), `team_stats`, `player_stats` (`category` from the payload key), `drives`, `officials`, `linescore` |
+| *(none — reads the built `pbp_cfbfastr` parquet)* | `qa` (report-only validation verdict per game, see below) |
 
 `contest_id` / `team_id` / `player_id` are NCAA **string** ids and stay `Utf8`.
 `mfb/qa/qa_pbp_vs_linescore_{season}.parquet` (final-score QA, built here with
 `--dataset all`) is committed but not released.
+
+### `qa` — report-only data-integrity gate
+
+`ncaa_mfb_qa_{season}` is one row per game: the verdict of sdv-py's
+`sportsdataverse.validation.validate_game()` over that game's slice of the built
+`pbp_cfbfastr` frame. The mapper output is cfbfastR-shaped, so the gate runs with
+`league="cfb"`, `source="ncaa"`.
+
+| col | type | meaning |
+| --- | --- | --- |
+| `game_id` | Int64 | stats.ncaa.org contest id, as `pbp_cfbfastr` carries it |
+| `league` / `source` | Utf8 | always `cfb` / `ncaa` |
+| `season` | Int64 | season (starting year) |
+| `processing_version` | Utf8 | `<sportsdataverse version>+<git sha>` that mapped the plays |
+| `n_rows` | Int64 | plays validated |
+| `ok` | Boolean | `true` when no rule fired at `error` severity |
+| `n_errors` / `n_warnings` | Int64 | rules fired per severity |
+| `failed_rule_ids` / `warned_rule_ids` | Utf8 | comma-joined rule ids (flat string so parquet/csv/rds share one schema) |
+| `built_at` | Utf8 | UTC timestamp |
+
+Each season also ships `ncaa_mfb_qa_{season}_summary.json`: the season aggregate
+(`games`, `games_error_free`, `error_free_share`, `max_error_share`,
+`threshold_exceeded`, `blocking`, `counts_by_rule`) plus the pre-publish **drift**
+findings — `schema_contract`, `null_rate`, `constant_column` and `rate_anomaly`
+against the previously published `ncaa_mfb_pbp_cfbfastr` season asset.
+
+**Nothing fails the build on QA.** `ncaa_mfb_data_build.qa.BLOCKING` is `False` and
+`MAX_ERROR_SHARE` (0.82, seeded from the measured 2025 season: 318/1,685 games
+error-free, almost all of the rest on `flags.no_play_yardage_credited`) is a ratchet
+target lowered only with a ledger entry. Only the rules whose columns the mapper emits are judged — the flag family
+and the INFO attribution-coverage rules today; the EP/WP, timeout, score-continuity
+and box-parity families are skipped, not passed.
 
 **Season convention: STARTING year** — the football standard (cfbfastR / cfb /
 nfl): `season = 2025` is the fall-2025 season, `2026` is the season kicking off
@@ -289,3 +323,4 @@ Every numbered pipeline stage in `python/` (auto-listed; run subsets with the `s
 - `python/ncaa_mfb_08_drives_creation.py`
 - `python/ncaa_mfb_09_officials_creation.py`
 - `python/ncaa_mfb_10_linescore_creation.py`
+- `python/ncaa_mfb_11_qa_creation.py`

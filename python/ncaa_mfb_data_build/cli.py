@@ -33,6 +33,7 @@ GAME_GRAIN = {
     "team_stats",
     "player_stats",
     "officials",
+    "qa",
 }
 
 
@@ -57,7 +58,9 @@ def build_dataset(
     if spec.name in GAME_GRAIN:
         from ncaa_mfb_data_build import builders
 
-        if spec.name == "player_stats":
+        if spec.name == "qa":
+            df = builders.build_validation_qa(season, base)
+        elif spec.name == "player_stats":
             df = builders.build_player_stats(season, raw)
         elif spec.name == "pbp_cfbfastr":
             df = builders.build_pbp_cfbfastr(season, raw)
@@ -88,7 +91,34 @@ def build_dataset(
     # so name and column can never drift again.
     df = df.with_columns(pl.lit(season, dtype=pl.Int64).alias("season"))
     write_dataset(df, spec, season, base=base, release=release)
+    if spec.name == "qa":
+        _qa_sidecar(df, season, base)
     return df
+
+
+def _qa_sidecar(qa_df: pl.DataFrame, season: int, base: Path) -> Path:
+    """Write the QA season ``_summary.json``: the aggregate + the drift gate.
+
+    Report-only and best-effort: with no previous release to compare against
+    the drift list is simply empty. Nothing here can fail a build.
+    """
+    from ncaa_mfb_data_build import qa
+
+    cf = REGISTRY["pbp_cfbfastr"]
+    cf_path = base / "mfb" / cf.name / "parquet" / f"{cf.tag}_{season}.parquet"
+    drift: list = []
+    if cf_path.is_file():
+        drift = qa.drift_findings(
+            pl.read_parquet(cf_path),
+            qa.published_frame(qa.published_url(cf.tag, cf.tag, season)),
+        )
+    summary = qa.season_summary(
+        qa_df, season, processing_version=qa.processing_version(), drift=drift
+    )
+    qa.log_summary(summary)
+    spec = REGISTRY["qa"]
+    out = base / "mfb" / spec.name / "parquet" / f"{spec.tag}_{season}.parquet"
+    return qa.write_summary(summary, qa.summary_path(out))
 
 
 def _build(args: argparse.Namespace) -> int:
@@ -106,6 +136,9 @@ def _build(args: argparse.Namespace) -> int:
         from ncaa_mfb_data_build import publish
 
         for name in names:
+            if name in publish.PUBLISH_HELD:
+                log.info("%s: built, publish held (see publish.PUBLISH_HELD)", name)
+                continue
             publish.publish_dataset(REGISTRY[name], args.season, base=base, dry_run=args.dry_run)
     if args.dataset == "all":
         _write_qa(args.season, base)
