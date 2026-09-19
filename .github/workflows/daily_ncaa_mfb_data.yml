@@ -113,10 +113,14 @@ jobs:
           echo "START_YEAR=$y" >> "$GITHUB_ENV"
           echo "END_YEAR=$y"   >> "$GITHUB_ENV"
 
-      - name: Check out the target seasons' parquet
+      # `*_${y}*`, not `*_${y}.parquet`: mfb/*/parquet/ also holds the QA
+      # sidecar (`ncaa_mfb_qa_{season}_summary.json`), and a file the cone
+      # excludes cannot be `git add`ed -- which failed the commit step of run
+      # 35428053099 after every asset had already published.
+      - name: Check out the target seasons' build outputs
         run: |
           for y in $(seq "$START_YEAR" "${END_YEAR:-$START_YEAR}"); do
-            git sparse-checkout add "/mfb/*/parquet/*_${y}.parquet"
+            git sparse-checkout add "/mfb/*/parquet/*_${y}*"
           done
           git config --local user.email "action@github.com"
           git config --local user.name "Github Action"
