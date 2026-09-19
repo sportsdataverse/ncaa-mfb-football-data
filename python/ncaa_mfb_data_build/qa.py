@@ -49,13 +49,17 @@ LEAGUE = "cfb"
 SOURCE = "ncaa"
 
 #: Share of a season's games allowed to carry an ``error`` finding. Seeded from
-#: THIS repo's own measurement rather than the ESPN families': the whole 2025
-#: season off ``ncaa_mfb_pbp_cfbfastr`` on sdv-py ``main`` @1686f904f is
-#: 318/1,685 games error-free (18.9%), so 0.82. One rule accounts for nearly
-#: all of it -- ``flags.no_play_yardage_credited`` on 1,365 games, with
-#: ``flags.int_without_pass`` on 13. Lower it only with a ledger entry as that
+#: THIS repo's own measurement rather than the ESPN families'. Re-seeded from the
+#: published ``ncaa_mfb_qa_2026_summary.json`` built on sdv-py ``main`` @61b5a5f9
+#: (NC12-NC15, #557) over the NCAA rule scope #556/#558 gave ``source="ncaa"``
+#: (42 rules evaluate, 55 declared not applicable): 55/340 games error-free,
+#: ``error_share`` 0.8382 -- so 0.85, ~0.012 headroom (4 games). The prior 0.82
+#: predates that scope; it was measured when 13 rules evaluated, not 42. One rule
+#: still accounts for nearly all of it -- ``flags.no_play_yardage_credited`` on
+#: 284 games, with ``down.scrimmage_down_1_4`` on 3 and ``score.monotone`` /
+#: ``score.delta_value`` on 1 each. Lower it only with a ledger entry as that
 #: rule closes.
-MAX_ERROR_SHARE = 0.82
+MAX_ERROR_SHARE = 0.85
 
 #: Report-only. The build logs the summary and publishes the asset; it never
 #: fails on QA. Flipping this to ``True`` is the ratchet step, its own PR.

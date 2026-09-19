@@ -142,9 +142,11 @@ findings — `schema_contract`, `null_rate`, `constant_column` and `rate_anomaly
 against the previously published `ncaa_mfb_pbp_cfbfastr` season asset.
 
 **Nothing fails the build on QA.** `ncaa_mfb_data_build.qa.BLOCKING` is `False` and
-`MAX_ERROR_SHARE` (0.82, seeded from the measured 2025 season: 318/1,685 games
-error-free, almost all of the rest on `flags.no_play_yardage_credited`) is a ratchet
-target lowered only with a ledger entry. Only the rules whose columns the mapper emits are judged — the flag family
+`MAX_ERROR_SHARE` (0.85, re-seeded from the published 2026 QA summary at sdv-py
+@61b5a5f9 over the post-#556/#558 NCAA scope: 55/340 games error-free,
+`error_share` 0.8382, almost all of the rest on
+`flags.no_play_yardage_credited`) is a ratchet target lowered only with a ledger
+entry. Only the rules whose columns the mapper emits are judged — the flag family
 and the INFO attribution-coverage rules today; the EP/WP, timeout, score-continuity
 and box-parity families are skipped, not passed.
 
