@@ -1,0 +1,20 @@
+{
+  "league": "cfb",
+  "source": "ncaa",
+  "season": 2026,
+  "processing_version": "0.1.4+1686f904",
+  "built_at": "2026-09-19 07:07:25 UTC",
+  "games": 340,
+  "games_error_free": 56,
+  "error_free_share": 0.1647,
+  "error_share": 0.8353,
+  "max_error_share": 0.82,
+  "threshold_exceeded": true,
+  "blocking": false,
+  "counts_by_rule": {
+    "flags.no_play_counted_as_attempt": 334,
+    "flags.no_play_yardage_credited": 284,
+    "flags.int_without_pass": 1
+  },
+  "drift": []
+}
