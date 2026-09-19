@@ -142,8 +142,8 @@ findings — `schema_contract`, `null_rate`, `constant_column` and `rate_anomaly
 against the previously published `ncaa_mfb_pbp_cfbfastr` season asset.
 
 **Nothing fails the build on QA.** `ncaa_mfb_data_build.qa.BLOCKING` is `False` and
-`MAX_ERROR_SHARE` (0.85, re-seeded from the measured 2026 season: 56/340 games
-error-free, `error_share` 0.8353, almost all of the rest on
+`MAX_ERROR_SHARE` (0.05, ratcheted down from 0.85 on the R5 2026 republish: 336/340
+games error-free, `error_share` 0.0118, after sdv-py #560 closed
 `flags.no_play_counted_as_attempt` and `flags.no_play_yardage_credited`) is a ratchet
 target lowered only with a ledger entry. Since sdv-py #556 gave `source="ncaa"` its
 own column aliases and an explicit not-applicable scope, **42 rules evaluate and 55

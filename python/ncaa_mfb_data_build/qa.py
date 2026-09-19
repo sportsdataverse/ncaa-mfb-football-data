@@ -60,18 +60,20 @@ SOURCE = "ncaa"
 #: 318/1,685 games error-free (18.9%), so 0.82. Lower it only with a ledger
 #: entry as the open rules close.
 #:
-#: **Re-seeded 0.82 -> 0.85 from the full 2026 season.** The published
-#: ``ncaa_mfb_qa_2026_summary.json`` (``0.1.4+c9215199``) reads 56/340 games
-#: error-free -- ``error_share`` 0.8353, over 0.82, so ``threshold_exceeded``
-#: was true on a report-only asset. Still one rule family, not noise:
-#: ``flags.no_play_counted_as_attempt`` 334 games,
-#: ``flags.no_play_yardage_credited`` 284, ``flags.int_without_pass`` 1. That
-#: measurement predates #556, which makes 42 rules evaluate instead of 13, so
-#: the next full season will read worse again before it reads better -- re-seed
-#: on that measurement, do not pre-empt it here.
-#: Ledger 2026-09-17 03:35 EDT, "V2 QA assets PUBLISHED", gotcha (3), and
-#: 04:05 EDT, "NCAA-RULES -> PR #556".
-MAX_ERROR_SHARE = 0.85
+#: **Ratcheted 0.85 -> 0.05 from the R5 2026 republish.** sdv-py #560 (NC16/NC17)
+#: closed the family that owned the old ceiling: a play wiped out by a penalty is
+#: typed "Penalty" with no yardage and no attempt, and a try is attributed to the
+#: kicking team. Published ``ncaa_mfb_qa_2026_summary.json`` (``0.1.4+dfbb29b8``,
+#: built 2026-09-19 10:44 UTC) reads **336/340 games error-free** --
+#: ``error_share`` **0.0118**, against 0.8382 on the R4 asset, and
+#: ``flags.no_play_counted_as_attempt`` / ``flags.no_play_yardage_credited``
+#: (334 / 284 games) are both gone from ``counts_by_rule``. 0.05 is the observed
+#: 0.0118 plus headroom for ~13 more games of the 340 (one game = 0.0029), so a
+#: single bad week does not trip a report-only gate. Lower it again as the
+#: residual rules close.
+#: Ledger 2026-09-19, "R5 NCAA 2026 republished"; 2026-09-17 03:35 EDT,
+#: "V2 QA assets PUBLISHED", gotcha (3), and 04:05 EDT, "NCAA-RULES -> PR #556".
+MAX_ERROR_SHARE = 0.05
 
 #: Report-only. The build logs the summary and publishes the asset; it never
 #: fails on QA. Flipping this to ``True`` is the ratchet step, its own PR.
