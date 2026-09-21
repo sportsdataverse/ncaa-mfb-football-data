@@ -3,24 +3,25 @@
   "source": "ncaa",
   "season": 2026,
   "processing_version": "0.1.4+dfbb29b8",
-  "built_at": "2026-09-19 15:44:48 UTC",
-  "games": 343,
-  "games_error_free": 338,
-  "error_free_share": 0.9854,
-  "error_share": 0.0146,
+  "built_at": "2026-09-21 17:19:23 UTC",
+  "games": 467,
+  "games_error_free": 459,
+  "error_free_share": 0.9829,
+  "error_share": 0.0171,
   "max_error_share": 0.05,
   "threshold_exceeded": false,
   "blocking": false,
   "counts_by_rule": {
-    "clock.monotone_within_period": 87,
-    "ytg.continuity": 35,
-    "score.change_on_non_scoring_play": 12,
-    "down.scrimmage_distance_ge_1": 3,
-    "down.scrimmage_down_1_4": 3,
-    "score.delta_value": 2,
-    "score.scoring_play_without_change": 2,
+    "clock.monotone_within_period": 121,
+    "ytg.continuity": 37,
+    "score.change_on_non_scoring_play": 21,
+    "score.scoring_play_without_change": 8,
+    "down.scrimmage_distance_ge_1": 4,
+    "down.scrimmage_down_1_4": 4,
+    "score.delta_value": 3,
+    "score.monotone": 2,
     "plays.kickoff_count_matches_scores": 1,
-    "score.monotone": 1
+    "ytg.scrimmage_start_1_99": 1
   },
   "drift": [
     {
@@ -28,13 +29,13 @@
       "severity": "warn",
       "domain": "cfb",
       "dataset": "pbp_cfbfastr",
-      "message": "mean of 'yds_sacked' moved 18.8% (3 -> 3.562)",
+      "message": "mean of 'yds_sacked' moved 78.4% (3.562 -> 6.355)",
       "locator": {
         "column": "yds_sacked"
       },
-      "expected": 3.0,
-      "actual": 3.5625,
-      "metric": 0.1875,
+      "expected": 3.5625,
+      "actual": 6.3545454545454545,
+      "metric": 0.7837,
       "needs_judgment": false,
       "sample": null
     }
