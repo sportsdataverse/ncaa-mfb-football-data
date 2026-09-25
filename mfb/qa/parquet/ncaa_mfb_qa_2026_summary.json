@@ -3,7 +3,7 @@
   "source": "ncaa",
   "season": 2026,
   "processing_version": "0.1.4+dfbb29b8",
-  "built_at": "2026-09-21 17:19:23 UTC",
+  "built_at": "2026-09-25 14:27:01 UTC",
   "games": 467,
   "games_error_free": 459,
   "error_free_share": 0.9829,
@@ -23,21 +23,5 @@
     "plays.kickoff_count_matches_scores": 1,
     "ytg.scrimmage_start_1_99": 1
   },
-  "drift": [
-    {
-      "check": "rate_anomaly",
-      "severity": "warn",
-      "domain": "cfb",
-      "dataset": "pbp_cfbfastr",
-      "message": "mean of 'yds_sacked' moved 78.4% (3.562 -> 6.355)",
-      "locator": {
-        "column": "yds_sacked"
-      },
-      "expected": 3.5625,
-      "actual": 6.3545454545454545,
-      "metric": 0.7837,
-      "needs_judgment": false,
-      "sample": null
-    }
-  ]
+  "drift": []
 }
