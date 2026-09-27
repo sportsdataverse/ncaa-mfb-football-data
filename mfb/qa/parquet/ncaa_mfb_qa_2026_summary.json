@@ -3,25 +3,41 @@
   "source": "ncaa",
   "season": 2026,
   "processing_version": "0.1.4+dfbb29b8",
-  "built_at": "2026-09-26 15:51:23 UTC",
-  "games": 474,
-  "games_error_free": 466,
-  "error_free_share": 0.9831,
-  "error_share": 0.0169,
+  "built_at": "2026-09-27 17:44:28 UTC",
+  "games": 584,
+  "games_error_free": 573,
+  "error_free_share": 0.9812,
+  "error_share": 0.0188,
   "max_error_share": 0.05,
   "threshold_exceeded": false,
   "blocking": false,
   "counts_by_rule": {
-    "clock.monotone_within_period": 124,
-    "ytg.continuity": 37,
-    "score.change_on_non_scoring_play": 21,
-    "score.scoring_play_without_change": 8,
-    "down.scrimmage_distance_ge_1": 4,
+    "clock.monotone_within_period": 155,
+    "ytg.continuity": 40,
+    "score.change_on_non_scoring_play": 25,
+    "score.scoring_play_without_change": 10,
+    "down.scrimmage_distance_ge_1": 5,
     "down.scrimmage_down_1_4": 4,
-    "score.delta_value": 3,
-    "score.monotone": 2,
-    "plays.kickoff_count_matches_scores": 1,
-    "ytg.scrimmage_start_1_99": 1
+    "score.delta_value": 4,
+    "score.monotone": 3,
+    "ytg.scrimmage_start_1_99": 3,
+    "plays.kickoff_count_matches_scores": 1
   },
-  "drift": []
+  "drift": [
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'pos_score_diff' moved 11.1% (-0.7119 -> -0.7909)",
+      "locator": {
+        "column": "pos_score_diff"
+      },
+      "expected": -0.7118653835071745,
+      "actual": -0.7908857449689499,
+      "metric": 0.111,
+      "needs_judgment": false,
+      "sample": null
+    }
+  ]
 }
