@@ -40,6 +40,10 @@ export PYTHONIOENCODING=utf-8
 
 sdv_commit_push() {
   local msg="$1"; shift
+  # Rotate any tracked *.log over 50 MiB before staging: GitHub's pre-receive hook rejects a
+  # push carrying a blob over 100 MiB, and every later push then carries it too (2026-09-30,
+  # cfb_player_stats_logfile_2026.log at 105 MB). A no-op where the droplet helper is absent.
+  [ -x "${SDV_ROTATE_LOGS:-/mnt/sdv_repos/bin/rotate_tracked_logs.sh}" ] && "${SDV_ROTATE_LOGS:-/mnt/sdv_repos/bin/rotate_tracked_logs.sh}" -- "$@"
   git add -- "$@" || { echo "::error ::git add failed for: $msg"; return 1; }
   if git diff --cached --quiet; then echo "nothing to commit for: $msg"; return 0; fi
   git commit -q -m "$msg" || { echo "::error ::commit failed: $msg"; return 1; }
