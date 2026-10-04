@@ -1,0 +1,96 @@
+{
+  "league": "cfb",
+  "source": "ncaa",
+  "season": 2020,
+  "processing_version": "0.1.4+bec746b4",
+  "built_at": "2026-10-04 21:56:53 UTC",
+  "games": 828,
+  "games_error_free": 779,
+  "error_free_share": 0.9408,
+  "error_share": 0.0592,
+  "max_error_share": 0.05,
+  "threshold_exceeded": true,
+  "blocking": false,
+  "counts_by_rule": {
+    "down.scrimmage_distance_ge_1": 724,
+    "score.change_on_non_scoring_play": 673,
+    "score.scoring_play_without_change": 327,
+    "plays.kickoff_count_matches_scores": 266,
+    "ytg.continuity": 204,
+    "clock.monotone_within_period": 42,
+    "score.delta_value": 26,
+    "down.distance_le_ytg": 11,
+    "ytg.scrimmage_start_1_99": 10,
+    "ytg.start_range": 10,
+    "ytg.td_start_eq_yards_gained": 10,
+    "poss.punt_changes_possession": 6,
+    "flags.int_without_pass": 5,
+    "poss.kickoff_receiver_gets_ball": 5,
+    "ytg.end_range": 4,
+    "score.monotone": 3,
+    "down.scrimmage_down_1_4": 2,
+    "period.monotone": 1
+  },
+  "drift": [
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'TimeSecsRem' moved 10.2% (1729 -> 1552)",
+      "locator": {
+        "column": "TimeSecsRem"
+      },
+      "expected": 1728.6771546571024,
+      "actual": 1551.8757200304315,
+      "metric": 0.1023,
+      "needs_judgment": false,
+      "sample": null
+    },
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'pos_score_diff' moved 35.1% (-0.9569 -> -0.6205)",
+      "locator": {
+        "column": "pos_score_diff"
+      },
+      "expected": -0.9568509562472093,
+      "actual": -0.620532429389901,
+      "metric": 0.3515,
+      "needs_judgment": false,
+      "sample": null
+    },
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'yards_to_goal' moved 96.5% (87.77 -> 3.091)",
+      "locator": {
+        "column": "yards_to_goal"
+      },
+      "expected": 87.76572661291337,
+      "actual": 3.091126932414244,
+      "metric": 0.9648,
+      "needs_judgment": false,
+      "sample": null
+    },
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'yards_to_goal_end' moved 51.2% (99.47 -> 48.51)",
+      "locator": {
+        "column": "yards_to_goal_end"
+      },
+      "expected": 99.47154635397581,
+      "actual": 48.51458209193222,
+      "metric": 0.5123,
+      "needs_judgment": false,
+      "sample": null
+    }
+  ]
+}
