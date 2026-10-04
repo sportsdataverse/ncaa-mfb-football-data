@@ -1,0 +1,110 @@
+{
+  "league": "cfb",
+  "source": "ncaa",
+  "season": 2015,
+  "processing_version": "0.1.4+bec746b4",
+  "built_at": "2026-10-04 21:07:33 UTC",
+  "games": 1515,
+  "games_error_free": 1357,
+  "error_free_share": 0.8957,
+  "error_share": 0.1043,
+  "max_error_share": 0.05,
+  "threshold_exceeded": true,
+  "blocking": false,
+  "counts_by_rule": {
+    "down.scrimmage_distance_ge_1": 1487,
+    "score.change_on_non_scoring_play": 1339,
+    "score.scoring_play_without_change": 541,
+    "plays.kickoff_count_matches_scores": 496,
+    "ytg.continuity": 389,
+    "score.delta_value": 118,
+    "clock.monotone_within_period": 65,
+    "flags.int_without_pass": 19,
+    "down.distance_le_ytg": 14,
+    "ytg.scrimmage_start_1_99": 14,
+    "score.monotone": 11,
+    "ytg.start_range": 11,
+    "ytg.td_start_eq_yards_gained": 11,
+    "poss.punt_changes_possession": 6,
+    "ytg.end_range": 6,
+    "down.scrimmage_down_1_4": 4,
+    "poss.kickoff_receiver_gets_ball": 3
+  },
+  "drift": [
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'offense_score' moved 11.0% (12.24 -> 13.58)",
+      "locator": {
+        "column": "offense_score"
+      },
+      "expected": 12.236337267015953,
+      "actual": 13.579146434616407,
+      "metric": 0.1097,
+      "needs_judgment": false,
+      "sample": null
+    },
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'pos_score_diff' moved 23.0% (-0.6507 -> -0.5011)",
+      "locator": {
+        "column": "pos_score_diff"
+      },
+      "expected": -0.6506829263368296,
+      "actual": -0.5011020368332677,
+      "metric": 0.2299,
+      "needs_judgment": false,
+      "sample": null
+    },
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'pos_team_score' moved 11.0% (12.24 -> 13.58)",
+      "locator": {
+        "column": "pos_team_score"
+      },
+      "expected": 12.236337267015953,
+      "actual": 13.579146434616407,
+      "metric": 0.1097,
+      "needs_judgment": false,
+      "sample": null
+    },
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'yards_to_goal' moved 45.4% (38.04 -> 55.3)",
+      "locator": {
+        "column": "yards_to_goal"
+      },
+      "expected": 38.03992104048696,
+      "actual": 55.30378527324236,
+      "metric": 0.4538,
+      "needs_judgment": false,
+      "sample": null
+    },
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'yards_to_goal_end' moved 37.5% (35.66 -> 49.02)",
+      "locator": {
+        "column": "yards_to_goal_end"
+      },
+      "expected": 35.6618523694575,
+      "actual": 49.02391785731931,
+      "metric": 0.3747,
+      "needs_judgment": false,
+      "sample": null
+    }
+  ]
+}
