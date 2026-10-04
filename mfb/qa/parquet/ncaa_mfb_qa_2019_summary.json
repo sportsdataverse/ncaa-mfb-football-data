@@ -1,0 +1,50 @@
+{
+  "league": "cfb",
+  "source": "ncaa",
+  "season": 2019,
+  "processing_version": "0.1.4+bec746b4",
+  "built_at": "2026-10-04 21:48:36 UTC",
+  "games": 1607,
+  "games_error_free": 1490,
+  "error_free_share": 0.9272,
+  "error_share": 0.0728,
+  "max_error_share": 0.05,
+  "threshold_exceeded": true,
+  "blocking": false,
+  "counts_by_rule": {
+    "down.scrimmage_distance_ge_1": 1578,
+    "score.change_on_non_scoring_play": 1439,
+    "score.scoring_play_without_change": 683,
+    "plays.kickoff_count_matches_scores": 521,
+    "ytg.continuity": 356,
+    "score.delta_value": 85,
+    "clock.monotone_within_period": 67,
+    "flags.int_without_pass": 18,
+    "score.monotone": 11,
+    "down.distance_le_ytg": 9,
+    "poss.punt_changes_possession": 7,
+    "down.scrimmage_down_1_4": 6,
+    "ytg.scrimmage_start_1_99": 6,
+    "poss.kickoff_receiver_gets_ball": 4,
+    "ytg.start_range": 4,
+    "ytg.td_start_eq_yards_gained": 4,
+    "ytg.end_range": 3
+  },
+  "drift": [
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'pos_score_diff' moved 35.7% (-0.8193 -> -0.5267)",
+      "locator": {
+        "column": "pos_score_diff"
+      },
+      "expected": -0.8193340619119368,
+      "actual": -0.5266782635686987,
+      "metric": 0.3572,
+      "needs_judgment": false,
+      "sample": null
+    }
+  ]
+}
