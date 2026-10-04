@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import gzip
 import json
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -58,6 +59,36 @@ def season_contest_ids(raw: Path, season: int) -> "list[str]":
         return []
     ids = pl.read_parquet(schedule, columns=["contest_id"]).get_column("contest_id")
     return sorted(ids.drop_nulls().unique().to_list())
+
+
+def espn_week(game_date: date, season: int) -> int:
+    """ESPN's college-football week for a game played on ``game_date`` (a LOCAL date).
+
+    Week 1 runs through Labor Day (the first Monday of September); every later week runs
+    Tuesday to Monday. Against ESPN's own schedule for 2013-2025 this agrees on every
+    regular-season game except the one Labor Day Monday-night game a year whose UTC date
+    is the Tuesday (stats.ncaa.org dates are local, so that game lands in week 1, as ESPN
+    has it); 2020's rearranged season misses two more. These tables carry no season type,
+    so postseason games keep counting (ESPN files them as week 1 of season type 3).
+    """
+    sept1 = date(season, 9, 1)
+    labor_day = sept1 + timedelta(days=-sept1.weekday() % 7)
+    days = (game_date - labor_day).days - 1  # from the Tuesday after
+    return 1 if days < 0 else 2 + days // 7
+
+
+def season_weeks(raw: Path, season: int) -> "dict[str, int]":
+    """``contest_id -> espn_week`` from the schedule master's game dates (``{}`` without one)."""
+    schedule = raw / "mfb" / "schedules" / "parquet" / f"{season + 1}.parquet"
+    if not schedule.is_file() or "date" not in pl.read_parquet_schema(schedule):
+        return {}
+    games = (
+        pl.read_parquet(schedule, columns=["contest_id", "date"])
+        .with_columns(pl.col("date").str.to_date("%m/%d/%Y", strict=False))
+        .drop_nulls()
+        .unique("contest_id")
+    )
+    return {cid: espn_week(d, season) for cid, d in games.iter_rows()}
 
 
 def iter_payloads(raw: Path, season: int) -> "Iterator[dict[str, Any]]":
@@ -145,6 +176,7 @@ def build_pbp_cfbfastr(season: int, raw: Path) -> pl.DataFrame:
     from sportsdataverse.cfb.cfb_ncaa_pbp import DRIVE_TITLES_SCHEMA, PBP_SCHEMA
 
     frames = []
+    weeks = season_weeks(raw, season)
     for payload in iter_payloads(raw, season):
         pbp = _frame(payload.get("pbp") or [], PBP_SCHEMA)
         if not pbp.height:
@@ -152,6 +184,7 @@ def build_pbp_cfbfastr(season: int, raw: Path) -> pl.DataFrame:
         df = to_cfbfastr(
             pbp,
             season=payload.get("season"),
+            week=weeks.get(str(payload.get("contest_id"))),
             drives=_frame(payload.get("drives") or [], DRIVES_SCHEMA),
             linescore=_frame(payload.get("linescore") or [], LINESCORE_SCHEMA),
             drive_titles=_frame(payload.get("drive_titles") or [], DRIVE_TITLES_SCHEMA),
