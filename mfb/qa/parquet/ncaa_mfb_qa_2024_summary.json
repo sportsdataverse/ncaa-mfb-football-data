@@ -3,32 +3,45 @@
   "source": "ncaa",
   "season": 2024,
   "processing_version": "0.1.4+bec746b4",
-  "built_at": "2026-10-04 22:37:51 UTC",
+  "built_at": "2026-10-05 07:25:46 UTC",
   "games": 1664,
-  "games_error_free": 1628,
-  "error_free_share": 0.9784,
-  "error_share": 0.0216,
+  "games_error_free": 1632,
+  "error_free_share": 0.9808,
+  "error_share": 0.0192,
   "max_error_share": 0.05,
   "threshold_exceeded": false,
   "blocking": false,
   "counts_by_rule": {
     "clock.monotone_within_period": 372,
-    "ytg.continuity": 197,
-    "score.change_on_non_scoring_play": 91,
-    "score.scoring_play_without_change": 44,
+    "score.change_on_non_scoring_play": 81,
+    "ytg.continuity": 44,
+    "score.scoring_play_without_change": 43,
     "down.scrimmage_distance_ge_1": 28,
-    "score.delta_value": 22,
-    "score.monotone": 15,
-    "ytg.scrimmage_start_1_99": 8,
-    "plays.kickoff_count_matches_scores": 6,
-    "down.distance_le_ytg": 5,
+    "score.delta_value": 19,
+    "score.monotone": 13,
     "down.scrimmage_down_1_4": 5,
-    "ytg.start_range": 5,
-    "ytg.td_start_eq_yards_gained": 5,
-    "ytg.end_range": 4,
+    "ytg.scrimmage_start_1_99": 3,
+    "ytg.td_start_eq_yards_gained": 2,
     "flags.int_without_pass": 1,
+    "plays.kickoff_count_matches_scores": 1,
     "poss.kickoff_receiver_gets_ball": 1,
     "poss.punt_changes_possession": 1
   },
-  "drift": []
+  "drift": [
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'yds_sacked' moved 249.0% (-4.3 -> 6.405)",
+      "locator": {
+        "column": "yds_sacked"
+      },
+      "expected": -4.3,
+      "actual": 6.405228758169935,
+      "metric": 2.4896,
+      "needs_judgment": false,
+      "sample": null
+    }
+  ]
 }
