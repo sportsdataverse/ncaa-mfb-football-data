@@ -3,7 +3,7 @@
   "source": "ncaa",
   "season": 2026,
   "processing_version": "0.1.4+bec746b4",
-  "built_at": "2026-10-04 22:50:35 UTC",
+  "built_at": "2026-10-05 07:59:19 UTC",
   "games": 702,
   "games_error_free": 691,
   "error_free_share": 0.9843,
@@ -13,8 +13,8 @@
   "blocking": false,
   "counts_by_rule": {
     "clock.monotone_within_period": 180,
-    "ytg.continuity": 45,
     "score.change_on_non_scoring_play": 33,
+    "ytg.continuity": 17,
     "score.scoring_play_without_change": 16,
     "down.scrimmage_distance_ge_1": 5,
     "down.scrimmage_down_1_4": 4,
