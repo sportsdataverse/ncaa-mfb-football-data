@@ -3,32 +3,28 @@
   "source": "ncaa",
   "season": 2017,
   "processing_version": "0.1.4+bec746b4",
-  "built_at": "2026-10-04 21:23:04 UTC",
+  "built_at": "2026-10-05 05:43:24 UTC",
   "games": 1528,
-  "games_error_free": 1418,
-  "error_free_share": 0.928,
-  "error_share": 0.072,
+  "games_error_free": 1485,
+  "error_free_share": 0.9719,
+  "error_share": 0.0281,
   "max_error_share": 0.05,
-  "threshold_exceeded": true,
+  "threshold_exceeded": false,
   "blocking": false,
   "counts_by_rule": {
-    "down.scrimmage_distance_ge_1": 1491,
-    "score.change_on_non_scoring_play": 1349,
-    "score.scoring_play_without_change": 593,
-    "plays.kickoff_count_matches_scores": 491,
-    "ytg.continuity": 348,
-    "score.delta_value": 72,
+    "down.scrimmage_distance_ge_1": 1493,
+    "ytg.continuity": 361,
+    "score.change_on_non_scoring_play": 286,
+    "score.scoring_play_without_change": 79,
     "clock.monotone_within_period": 60,
-    "flags.int_without_pass": 24,
-    "down.scrimmage_down_1_4": 15,
+    "plays.kickoff_count_matches_scores": 26,
+    "flags.int_without_pass": 20,
     "poss.punt_changes_possession": 9,
-    "down.distance_le_ytg": 6,
+    "score.delta_value": 9,
     "score.monotone": 5,
-    "ytg.td_start_eq_yards_gained": 5,
+    "down.distance_le_ytg": 3,
     "poss.kickoff_receiver_gets_ball": 3,
-    "ytg.scrimmage_start_1_99": 3,
-    "ytg.start_range": 3,
-    "ytg.end_range": 1
+    "ytg.td_start_eq_yards_gained": 2
   },
   "drift": [
     {
@@ -36,13 +32,13 @@
       "severity": "warn",
       "domain": "cfb",
       "dataset": "pbp_cfbfastr",
-      "message": "mean of 'pos_score_diff' moved 34.0% (-0.7443 -> -0.4916)",
+      "message": "mean of 'pos_score_diff' moved 52.0% (-0.4916 -> -0.7471)",
       "locator": {
         "column": "pos_score_diff"
       },
-      "expected": -0.7442945898825994,
-      "actual": -0.4915506364743653,
-      "metric": 0.3396,
+      "expected": -0.4915506364743653,
+      "actual": -0.7470634936791319,
+      "metric": 0.5198,
       "needs_judgment": false,
       "sample": null
     },
@@ -51,13 +47,58 @@
       "severity": "warn",
       "domain": "cfb",
       "dataset": "pbp_cfbfastr",
-      "message": "mean of 'yards_to_goal' moved 21.5% (42.54 -> 51.69)",
+      "message": "mean of 'score_pts' moved 15.8% (0.2178 -> 0.2522)",
       "locator": {
-        "column": "yards_to_goal"
+        "column": "score_pts"
       },
-      "expected": 42.54429455173927,
-      "actual": 51.69187218808296,
-      "metric": 0.215,
+      "expected": 0.21780727109880715,
+      "actual": 0.25224775902666097,
+      "metric": 0.1581,
+      "needs_judgment": false,
+      "sample": null
+    },
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'yards_gained' moved 14.2% (6.476 -> 5.56)",
+      "locator": {
+        "column": "yards_gained"
+      },
+      "expected": 6.476292511057248,
+      "actual": 5.559756508052396,
+      "metric": 0.1415,
+      "needs_judgment": false,
+      "sample": null
+    },
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'yds_rushed' moved 17.5% (5.917 -> 4.881)",
+      "locator": {
+        "column": "yds_rushed"
+      },
+      "expected": 5.917067676871096,
+      "actual": 4.8814959420132675,
+      "metric": 0.175,
+      "needs_judgment": false,
+      "sample": null
+    },
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'yds_sacked' moved 149.6% (-12.87 -> 6.389)",
+      "locator": {
+        "column": "yds_sacked"
+      },
+      "expected": -12.86896551724138,
+      "actual": 6.389204545454546,
+      "metric": 1.4965,
       "needs_judgment": false,
       "sample": null
     }
