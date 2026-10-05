@@ -3,32 +3,29 @@
   "source": "ncaa",
   "season": 2023,
   "processing_version": "0.1.4+bec746b4",
-  "built_at": "2026-10-04 22:30:05 UTC",
+  "built_at": "2026-10-05 07:08:36 UTC",
   "games": 1569,
-  "games_error_free": 1512,
-  "error_free_share": 0.9637,
-  "error_share": 0.0363,
+  "games_error_free": 1524,
+  "error_free_share": 0.9713,
+  "error_share": 0.0287,
   "max_error_share": 0.05,
   "threshold_exceeded": false,
   "blocking": false,
   "counts_by_rule": {
-    "ytg.continuity": 177,
     "clock.monotone_within_period": 153,
-    "score.change_on_non_scoring_play": 117,
+    "score.change_on_non_scoring_play": 87,
+    "ytg.continuity": 65,
     "down.scrimmage_distance_ge_1": 59,
-    "score.scoring_play_without_change": 50,
-    "score.delta_value": 30,
-    "score.monotone": 19,
+    "score.scoring_play_without_change": 39,
+    "score.delta_value": 24,
+    "score.monotone": 17,
     "down.scrimmage_down_1_4": 13,
-    "plays.kickoff_count_matches_scores": 8,
-    "ytg.scrimmage_start_1_99": 8,
-    "down.distance_le_ytg": 7,
-    "ytg.start_range": 6,
     "poss.punt_changes_possession": 4,
-    "ytg.td_start_eq_yards_gained": 4,
-    "ytg.end_range": 3,
+    "ytg.scrimmage_start_1_99": 2,
+    "down.distance_le_ytg": 1,
     "flags.int_without_pass": 1,
-    "period.monotone": 1
+    "period.monotone": 1,
+    "plays.kickoff_count_matches_scores": 1
   },
   "drift": [
     {
@@ -36,28 +33,13 @@
       "severity": "warn",
       "domain": "cfb",
       "dataset": "pbp_cfbfastr",
-      "message": "mean of 'yards_to_goal' moved 26.8% (42.9 -> 54.4)",
+      "message": "mean of 'yds_sacked' moved 666.7% (-1.143 -> 6.477)",
       "locator": {
-        "column": "yards_to_goal"
+        "column": "yds_sacked"
       },
-      "expected": 42.901682063368476,
-      "actual": 54.395007821103654,
-      "metric": 0.2679,
-      "needs_judgment": false,
-      "sample": null
-    },
-    {
-      "check": "rate_anomaly",
-      "severity": "warn",
-      "domain": "cfb",
-      "dataset": "pbp_cfbfastr",
-      "message": "mean of 'yards_to_goal_end' moved 22.2% (40.13 -> 49.04)",
-      "locator": {
-        "column": "yards_to_goal_end"
-      },
-      "expected": 40.12770191075858,
-      "actual": 49.04259956040681,
-      "metric": 0.2222,
+      "expected": -1.1428571428571428,
+      "actual": 6.4769326683291775,
+      "metric": 6.6673,
       "needs_judgment": false,
       "sample": null
     }
