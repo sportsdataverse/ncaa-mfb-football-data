@@ -3,7 +3,7 @@
   "source": "ncaa",
   "season": 2026,
   "processing_version": "0.1.4+bec746b4",
-  "built_at": "2026-10-07 15:33:50 UTC",
+  "built_at": "2026-10-08 00:48:57 UTC",
   "games": 704,
   "games_error_free": 693,
   "error_free_share": 0.9844,
