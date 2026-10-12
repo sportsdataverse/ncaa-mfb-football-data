@@ -12,7 +12,9 @@ gitignored, written by ``io.write_dataset(release=True)`` / ``rds.to_rds``).
 from __future__ import annotations
 
 import hashlib
+import re
 import subprocess
+import time
 from functools import partial
 from pathlib import Path
 from typing import Callable
@@ -51,8 +53,56 @@ _GH_TIMEOUT = 180
 _GH_UPLOAD_TIMEOUT = 1800
 
 
+#: Retry only what a repeat can fix: a 5xx or a dropped connection. A 4xx (auth,
+#: 404, 422 "already exists") fails the same way every time, so it raises at once.
+#: Every upload is --clobber, so repeating one that half-landed is safe.
+_GH_RETRY_ATTEMPTS = 3
+_GH_RETRY_BACKOFF_S = 5.0
+_PERMANENT = re.compile(r"HTTP 4\d\d")
+_TRANSIENT = re.compile(
+    r"HTTP 5\d\d|connection (reset|refused)|timed? ?out|unexpected EOF|TLS handshake"
+    r"|no such host|temporary failure",
+    re.IGNORECASE,
+)
+
+
+def _is_transient(stderr: str) -> bool:
+    return not _PERMANENT.search(stderr) and bool(_TRANSIENT.search(stderr))
+
+
 def _gh(args: list[str], *, timeout: int = _GH_TIMEOUT) -> None:
-    subprocess.run(["gh", *args], check=True, timeout=timeout)
+    """Run ``gh``; retry a transient failure up to 3 times with backoff, never a 4xx."""
+    for attempt in range(1, _GH_RETRY_ATTEMPTS + 1):
+        proc = subprocess.run(["gh", *args], capture_output=True, text=True, timeout=timeout)
+        if proc.returncode == 0:
+            return
+        err = proc.stderr or ""
+        if attempt == _GH_RETRY_ATTEMPTS or not _is_transient(err):
+            raise subprocess.CalledProcessError(proc.returncode, ["gh", *args], proc.stdout, err)
+        log.warning(
+            "gh %s: transient failure (attempt %d/%d), retrying: %s",
+            " ".join(args[:2]),
+            attempt,
+            _GH_RETRY_ATTEMPTS,
+            err.strip()[:200],
+        )
+        time.sleep(_GH_RETRY_BACKOFF_S * attempt)
+
+
+def _report_missing(tag: str, repo: str, name: str, listing) -> None:
+    """After a failed upload, say loudly if ``--clobber`` deleted the asset and nothing replaced it."""
+    try:
+        now = listing(tag, repo)
+    except GhUnavailable as exc:
+        log.error("%s: upload of %s failed and the tag cannot be re-listed: %s", tag, name, exc)
+        return
+    if now is None or name not in now:
+        log.error(
+            "ASSET MISSING: %s:%s was deleted by --clobber and not re-uploaded; "
+            "consumers get a 404 until the next publish",
+            tag,
+            name,
+        )
 
 
 class GhUnavailable(RuntimeError):
@@ -109,9 +159,7 @@ def _gh_release_digests(tag: str, repo: str) -> dict[str, str] | None:
             log.warning("gh api release %s: %s (attempt %d/2)", tag, last, attempt)
             continue
         if proc.returncode == 0:
-            return dict(
-                ln.split("\t", 1) for ln in proc.stdout.splitlines() if "\t" in ln
-            )
+            return dict(ln.split("\t", 1) for ln in proc.stdout.splitlines() if "\t" in ln)
         err = (proc.stderr or "").strip()
         if _NOT_FOUND in err.lower():
             return None  # confirmed absent
@@ -320,21 +368,28 @@ def publish_dataset(
             log.warning("%s -- assuming the release exists, uploading every file", exc)
             got = {}
         remote = got if got is not None else {}
+    listing = digests or _gh_release_digests
     if not dry_run and got is None:
         log.info("release %s missing on %s -- creating it", spec.tag, repo)
-        run(
-            [
-                "release",
-                "create",
-                spec.tag,
-                "--repo",
-                repo,
-                "--title",
-                spec.tag,
-                "--notes",
-                f"{spec.tag} (NCAA MFB dataset, Python-built).",
-            ]
-        )
+        try:
+            run(
+                [
+                    "release",
+                    "create",
+                    spec.tag,
+                    "--repo",
+                    repo,
+                    "--title",
+                    spec.tag,
+                    "--notes",
+                    f"{spec.tag} (NCAA MFB dataset, Python-built).",
+                ]
+            )
+        except subprocess.CalledProcessError:
+            # a 5xx can land the create and still fail; a repeat then gets 422
+            if listing(spec.tag, repo) is None:
+                raise
+            log.warning("release %s create failed but the tag exists; continuing", spec.tag)
 
     pq = next((f for f in files if f.suffix == ".parquet"), None)
     if (
@@ -355,7 +410,11 @@ def publish_dataset(
             continue
         size = human_size(f.stat().st_size)
         log.info("uploading %s (%s) -> %s:%s", f.name, size, repo, spec.tag)
-        upload(["release", "upload", spec.tag, str(f), "--repo", repo, "--clobber"])
+        try:
+            upload(["release", "upload", spec.tag, str(f), "--repo", repo, "--clobber"])
+        except subprocess.CalledProcessError:
+            _report_missing(spec.tag, repo, f.name, listing)
+            raise
         count += 1
         log.info("uploaded %s -> %s (asset %d/%d)", f.name, spec.tag, count, len(todo))
 

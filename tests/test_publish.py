@@ -216,14 +216,18 @@ class _Proc:
 def test_published_assets_parses_names(monkeypatch):
     from ncaa_mfb_data_build import publish as P
 
-    monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(0, "a.parquet\tsha256:1\na.csv.gz\tsha256:2\n"))
+    monkeypatch.setattr(
+        P.subprocess, "run", lambda *a, **k: _Proc(0, "a.parquet\tsha256:1\na.csv.gz\tsha256:2\n")
+    )
     assert P.published_assets("t") == {"a.parquet", "a.csv.gz"}
 
 
 def test_published_assets_empty_only_for_confirmed_missing(monkeypatch):
     from ncaa_mfb_data_build import publish as P
 
-    monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(1, "", "gh: Not Found (HTTP 404)"))
+    monkeypatch.setattr(
+        P.subprocess, "run", lambda *a, **k: _Proc(1, "", "gh: Not Found (HTTP 404)")
+    )
     assert P.published_assets("t") == set()
 
 
@@ -266,7 +270,9 @@ def test_release_exists_assumes_present_when_gh_cannot_answer(monkeypatch):
     monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(3221225794))
     assert P._gh_release_exists("t", DEFAULT_REPO) is True
 
-    monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(1, "", "gh: Not Found (HTTP 404)"))
+    monkeypatch.setattr(
+        P.subprocess, "run", lambda *a, **k: _Proc(1, "", "gh: Not Found (HTTP 404)")
+    )
     assert P._gh_release_exists("t", DEFAULT_REPO) is False
 
 
@@ -349,7 +355,11 @@ def test_unchanged_parquet_skips_every_format_and_the_stamp(tmp_path: Path):
     remote[files["rds"].name] = remote[files["csv"].name] = "sha256:stale"
     calls: list[list[str]] = []
     result = publish_dataset(
-        _SPEC, 2026, base=tmp_path, runner=calls.append, digests=lambda t, r: remote,
+        _SPEC,
+        2026,
+        base=tmp_path,
+        runner=calls.append,
+        digests=lambda t, r: remote,
         make_rds=False,
     )
     assert calls == []
@@ -362,7 +372,11 @@ def test_changed_parquet_uploads_changed_files_parquet_last(tmp_path: Path):
     remote[files["parquet"].name] = remote[files["rds"].name] = "sha256:old"
     calls: list[list[str]] = []
     publish_dataset(
-        _SPEC, 2026, base=tmp_path, runner=calls.append, digests=lambda t, r: remote,
+        _SPEC,
+        2026,
+        base=tmp_path,
+        runner=calls.append,
+        digests=lambda t, r: remote,
         make_rds=False,
     )
     # the csv matched so it stays; the parquet goes LAST, then the sidecars
@@ -375,7 +389,11 @@ def test_missing_sibling_forces_upload_even_when_parquet_matches(tmp_path: Path)
     remote = {files["parquet"].name: _sha(files["parquet"])}
     calls: list[list[str]] = []
     publish_dataset(
-        _SPEC, 2026, base=tmp_path, runner=calls.append, digests=lambda t, r: remote,
+        _SPEC,
+        2026,
+        base=tmp_path,
+        runner=calls.append,
+        digests=lambda t, r: remote,
         make_rds=False,
     )
     up = _data_uploads(calls)
@@ -398,7 +416,11 @@ def test_failed_sibling_holds_the_parquet_back(tmp_path: Path):
 
     with pytest.raises(subprocess.CalledProcessError):
         publish_dataset(
-            _SPEC, 2026, base=tmp_path, runner=runner, digests=lambda t, r: {},
+            _SPEC,
+            2026,
+            base=tmp_path,
+            runner=runner,
+            digests=lambda t, r: {},
             make_rds=False,
         )
     assert files["parquet"].name not in _data_uploads(calls)
@@ -408,7 +430,11 @@ def test_no_release_creates_it_then_uploads(tmp_path: Path):
     _staged(tmp_path)
     calls: list[list[str]] = []
     publish_dataset(
-        _SPEC, 2026, base=tmp_path, runner=calls.append, digests=lambda t, r: None,
+        _SPEC,
+        2026,
+        base=tmp_path,
+        runner=calls.append,
+        digests=lambda t, r: None,
         make_rds=False,
     )
     assert calls[0][:2] == ["release", "create"]
@@ -424,9 +450,7 @@ def test_unanswerable_listing_uploads_everything_without_create(tmp_path: Path):
     def _boom(t, r):
         raise P.GhUnavailable("x")
 
-    publish_dataset(
-        _SPEC, 2026, base=tmp_path, runner=calls.append, digests=_boom, make_rds=False
-    )
+    publish_dataset(_SPEC, 2026, base=tmp_path, runner=calls.append, digests=_boom, make_rds=False)
     assert not any(c[:2] == ["release", "create"] for c in calls)
     assert len(_data_uploads(calls)) == 3
 
@@ -443,3 +467,109 @@ def test_release_digests_uses_rest_not_graphql(monkeypatch):
     monkeypatch.setattr(P.subprocess, "run", _run)
     assert P._gh_release_digests("t", DEFAULT_REPO) == {"a.parquet": "sha256:ab"}
     assert seen[0][:3] == ["gh", "api", f"repos/{DEFAULT_REPO}/releases/tags/t"]
+
+
+# --- bounded retry ---------------------------------------------------------------
+#
+# 2026-10-12: a 502 hit the delete half of `gh release upload --clobber` and left
+# ncaa_mbb_team_box_2026.parquet off the release. Transient failures retry; a 4xx
+# never does; a final failure re-lists the tag and names a deleted asset.
+
+
+def _seq_run(results, seen):
+    """Fake subprocess.run answering each call with the next (returncode, stderr)."""
+    it = iter(results)
+
+    def _run(argv, **kw):
+        seen.append(argv)
+        rc, err = next(it)
+        return _Proc(rc, "", err)
+
+    return _run
+
+
+def test_gh_retries_a_transient_failure_then_succeeds(monkeypatch):
+    from ncaa_mfb_data_build import publish as P
+
+    seen: list = []
+    monkeypatch.setattr(P, "_GH_RETRY_BACKOFF_S", 0)
+    monkeypatch.setattr(
+        P.subprocess, "run", _seq_run([(1, "HTTP 502: Server Error"), (0, "")], seen)
+    )
+    P._gh(["release", "upload", "t", "f", "--clobber"])
+    assert len(seen) == 2
+
+
+def test_gh_never_retries_a_4xx(monkeypatch):
+    import pytest
+
+    from ncaa_mfb_data_build import publish as P
+
+    seen: list = []
+    monkeypatch.setattr(P, "_GH_RETRY_BACKOFF_S", 0)
+    monkeypatch.setattr(
+        P.subprocess, "run", _seq_run([(1, "HTTP 422: Validation Failed")] * 3, seen)
+    )
+    with pytest.raises(P.subprocess.CalledProcessError):
+        P._gh(["release", "upload", "t", "f", "--clobber"])
+    assert len(seen) == 1
+
+
+def test_gh_gives_up_after_three_transient_failures(monkeypatch):
+    import pytest
+
+    from ncaa_mfb_data_build import publish as P
+
+    seen: list = []
+    monkeypatch.setattr(P, "_GH_RETRY_BACKOFF_S", 0)
+    monkeypatch.setattr(P.subprocess, "run", _seq_run([(1, "HTTP 503: Unavailable")] * 3, seen))
+    with pytest.raises(P.subprocess.CalledProcessError):
+        P._gh(["release", "upload", "t", "f", "--clobber"])
+    assert len(seen) == 3
+
+
+def test_failed_upload_reports_an_asset_the_clobber_deleted(tmp_path: Path, caplog):
+    import subprocess
+
+    import pytest
+
+    files = _staged(tmp_path)
+    listings = iter([{}, {files["csv"].name: "sha256:x"}])  # 2nd listing: after the failure
+
+    def runner(argv):
+        if argv[:2] == ["release", "upload"] and argv[3].endswith(".rds"):
+            raise subprocess.CalledProcessError(1, argv, "", "HTTP 502")
+
+    with pytest.raises(subprocess.CalledProcessError):
+        publish_dataset(
+            _SPEC,
+            2026,
+            base=tmp_path,
+            runner=runner,
+            digests=lambda t, r: next(listings),
+            make_rds=False,
+        )
+    assert f"ASSET MISSING: {_SPEC.tag}:{files['rds'].name}" in caplog.text
+
+
+def test_create_that_landed_despite_failing_is_not_fatal(tmp_path: Path):
+    import subprocess
+
+    _staged(tmp_path)
+    listings = iter([None, {}])  # absent, then present after the failed create
+    calls: list[list[str]] = []
+
+    def runner(argv):
+        calls.append(argv)
+        if argv[:2] == ["release", "create"]:
+            raise subprocess.CalledProcessError(1, argv, "", "HTTP 422: already_exists")
+
+    publish_dataset(
+        _SPEC,
+        2026,
+        base=tmp_path,
+        runner=runner,
+        digests=lambda t, r: next(listings),
+        make_rds=False,
+    )
+    assert len(_data_uploads(calls)) == 3
