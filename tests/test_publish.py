@@ -200,7 +200,7 @@ def test_publish_make_rds_failure_still_uploads_parquet(tmp_path: Path, monkeypa
 # The distinction under test: "this tag has nothing" vs "I could not look".
 # Collapsing them makes `check --porcelain` emit an empty resume index and exit
 # 0, so run_historical_publish.sh re-uploads an entire history while reporting a
-# clean run. Absence must be proven by gh's `release not found`, never inferred
+# clean run. Absence must be proven by gh's `HTTP 404`, never inferred
 # from an exit code -- gh also exits non-zero for auth, rate-limit, and bad-repo
 # errors, and on 2026-08-18 a Windows STATUS_DLL_INIT_FAILED (exit 3221225794)
 # was read as "tag missing" and killed a live unit on a redundant create.
@@ -216,14 +216,14 @@ class _Proc:
 def test_published_assets_parses_names(monkeypatch):
     from ncaa_mfb_data_build import publish as P
 
-    monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(0, "a.parquet\na.csv.gz\n"))
+    monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(0, "a.parquet\tsha256:1\na.csv.gz\tsha256:2\n"))
     assert P.published_assets("t") == {"a.parquet", "a.csv.gz"}
 
 
 def test_published_assets_empty_only_for_confirmed_missing(monkeypatch):
     from ncaa_mfb_data_build import publish as P
 
-    monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(1, "", "release not found"))
+    monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(1, "", "gh: Not Found (HTTP 404)"))
     assert P.published_assets("t") == set()
 
 
@@ -266,7 +266,7 @@ def test_release_exists_assumes_present_when_gh_cannot_answer(monkeypatch):
     monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(3221225794))
     assert P._gh_release_exists("t", DEFAULT_REPO) is True
 
-    monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(1, "", "release not found"))
+    monkeypatch.setattr(P.subprocess, "run", lambda *a, **k: _Proc(1, "", "gh: Not Found (HTTP 404)"))
     assert P._gh_release_exists("t", DEFAULT_REPO) is False
 
 
@@ -311,3 +311,135 @@ def test_uploads_use_the_long_timeout(tmp_path: Path, monkeypatch):
     P.publish_dataset(_SPEC, 2026, base=tmp_path, exists_check=lambda *_: True, make_rds=False)
     assert seen, "no upload was attempted"
     assert all(t == P._GH_UPLOAD_TIMEOUT for t in seen), seen
+
+
+# --- digest skip ---------------------------------------------------------------
+#
+# The droplet shares ONE 5,000/h API quota. A nightly that rebuilds an unchanged
+# season must cost one release listing, not ~3 requests per asset plus 4 sidecars.
+
+
+def _sha(p: Path) -> str:
+    import hashlib
+
+    return "sha256:" + hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def _data_uploads(calls):
+    return [
+        Path(c[3]).name
+        for c in calls
+        if c[:2] == ["release", "upload"] and not Path(c[3]).name.startswith(SIDECARS)
+    ]
+
+
+def _staged(tmp_path: Path) -> dict[str, Path]:
+    _stage(tmp_path)
+    return {
+        "parquet": tmp_path / "mfb" / "pbp" / "parquet" / "ncaa_mfb_pbp_2026.parquet",
+        "csv": tmp_path / "mfb" / "_release_build" / "pbp" / f"ncaa_mfb_pbp_2026{CSV_SUFFIX}",
+        "rds": tmp_path / "mfb" / "_release_build" / "pbp" / "ncaa_mfb_pbp_2026.rds",
+    }
+
+
+def test_unchanged_parquet_skips_every_format_and_the_stamp(tmp_path: Path):
+    files = _staged(tmp_path)
+    remote = {f.name: _sha(f) for f in files.values()}
+    # rds + csv.gz re-stamp every build (write time, gzip mtime)
+    remote[files["rds"].name] = remote[files["csv"].name] = "sha256:stale"
+    calls: list[list[str]] = []
+    result = publish_dataset(
+        _SPEC, 2026, base=tmp_path, runner=calls.append, digests=lambda t, r: remote,
+        make_rds=False,
+    )
+    assert calls == []
+    assert result["uploaded"] == 0
+
+
+def test_changed_parquet_uploads_changed_files_parquet_last(tmp_path: Path):
+    files = _staged(tmp_path)
+    remote = {f.name: _sha(f) for f in files.values()}
+    remote[files["parquet"].name] = remote[files["rds"].name] = "sha256:old"
+    calls: list[list[str]] = []
+    publish_dataset(
+        _SPEC, 2026, base=tmp_path, runner=calls.append, digests=lambda t, r: remote,
+        make_rds=False,
+    )
+    # the csv matched so it stays; the parquet goes LAST, then the sidecars
+    assert _data_uploads(calls) == [files["rds"].name, files["parquet"].name]
+    assert any(Path(c[3]).name == "timestamp.json" for c in calls)
+
+
+def test_missing_sibling_forces_upload_even_when_parquet_matches(tmp_path: Path):
+    files = _staged(tmp_path)
+    remote = {files["parquet"].name: _sha(files["parquet"])}
+    calls: list[list[str]] = []
+    publish_dataset(
+        _SPEC, 2026, base=tmp_path, runner=calls.append, digests=lambda t, r: remote,
+        make_rds=False,
+    )
+    up = _data_uploads(calls)
+    assert set(up) == {f.name for f in files.values()}
+    assert up[-1] == files["parquet"].name
+
+
+def test_failed_sibling_holds_the_parquet_back(tmp_path: Path):
+    import subprocess
+
+    import pytest
+
+    files = _staged(tmp_path)
+    calls: list[list[str]] = []
+
+    def runner(argv):
+        calls.append(argv)
+        if argv[3].endswith(".rds"):
+            raise subprocess.CalledProcessError(1, argv)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        publish_dataset(
+            _SPEC, 2026, base=tmp_path, runner=runner, digests=lambda t, r: {},
+            make_rds=False,
+        )
+    assert files["parquet"].name not in _data_uploads(calls)
+
+
+def test_no_release_creates_it_then_uploads(tmp_path: Path):
+    _staged(tmp_path)
+    calls: list[list[str]] = []
+    publish_dataset(
+        _SPEC, 2026, base=tmp_path, runner=calls.append, digests=lambda t, r: None,
+        make_rds=False,
+    )
+    assert calls[0][:2] == ["release", "create"]
+    assert len(_data_uploads(calls)) == 3
+
+
+def test_unanswerable_listing_uploads_everything_without_create(tmp_path: Path):
+    from ncaa_mfb_data_build import publish as P
+
+    _staged(tmp_path)
+    calls: list[list[str]] = []
+
+    def _boom(t, r):
+        raise P.GhUnavailable("x")
+
+    publish_dataset(
+        _SPEC, 2026, base=tmp_path, runner=calls.append, digests=_boom, make_rds=False
+    )
+    assert not any(c[:2] == ["release", "create"] for c in calls)
+    assert len(_data_uploads(calls)) == 3
+
+
+def test_release_digests_uses_rest_not_graphql(monkeypatch):
+    from ncaa_mfb_data_build import publish as P
+
+    seen = []
+
+    def _run(argv, **kw):
+        seen.append(argv)
+        return _Proc(0, "a.parquet\tsha256:ab\n")
+
+    monkeypatch.setattr(P.subprocess, "run", _run)
+    assert P._gh_release_digests("t", DEFAULT_REPO) == {"a.parquet": "sha256:ab"}
+    assert seen[0][:3] == ["gh", "api", f"repos/{DEFAULT_REPO}/releases/tags/t"]

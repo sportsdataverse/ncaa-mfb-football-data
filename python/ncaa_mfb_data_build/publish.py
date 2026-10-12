@@ -11,6 +11,7 @@ gitignored, written by ``io.write_dataset(release=True)`` / ``rds.to_rds``).
 
 from __future__ import annotations
 
+import hashlib
 import subprocess
 from functools import partial
 from pathlib import Path
@@ -63,22 +64,25 @@ class GhUnavailable(RuntimeError):
     """
 
 
-# `gh release view` prints exactly this to stderr when the tag does not exist.
-# It is the ONLY confirmation of absence: a nonzero exit alone is not, because
-# gh also exits nonzero for auth failures, rate limits, and bad repos, and it
-# even reports a bad repo through a GraphQL error rather than a clean code.
-_NOT_FOUND = "release not found"
+# `gh api` prints "gh: Not Found (HTTP 404)" to stderr when the tag does not
+# exist. It is the ONLY confirmation of absence: a nonzero exit alone is not,
+# because gh also exits nonzero for auth failures, rate limits, and bad repos.
+_NOT_FOUND = "http 404"
 
 
-def _gh_release_assets(tag: str, repo: str) -> set[str] | None:
-    """Asset names for ``tag``, or ``None`` when the release is CONFIRMED absent.
+def _gh_release_digests(tag: str, repo: str) -> dict[str, str] | None:
+    """``{asset name: "sha256:<hex>"}`` for ``tag``, or ``None`` when CONFIRMED absent.
+
+    ONE REST call (``gh api``, the core quota -- not ``gh release view``'s
+    GraphQL): the release object embeds every asset with a GitHub-computed
+    ``digest``, so this is both the existence probe and the change check.
 
     Raises:
         GhUnavailable: gh could not answer -- ambiguous exit, launch failure, or
             timeout, each retried once first.
 
-    Absence is proven by the ``release not found`` stderr line, never by an exit
-    code. On 2026-08-18 02:53:17 a transient Windows STATUS_DLL_INIT_FAILED
+    Absence is proven by the ``HTTP 404`` stderr line, never by an exit code. On
+    2026-08-18 02:53:17 a transient Windows STATUS_DLL_INIT_FAILED
     (0xC0000142 = exit 3221225794) hit Rscript and gh in the same second; a
     code-only check read it as "tag missing" and killed ``team_ids 2022`` on a
     redundant ``release create``.
@@ -87,20 +91,13 @@ def _gh_release_assets(tag: str, repo: str) -> set[str] | None:
     for attempt in (1, 2):
         try:
             proc = subprocess.run(
-                # fmt: off
                 [
                     "gh",
-                    "release",
-                    "view",
-                    tag,
-                    "--repo",
-                    repo,
-                    "--json",
-                    "assets",
+                    "api",
+                    f"repos/{repo}/releases/tags/{tag}",
                     "--jq",
-                    ".assets[].name",
+                    r'.assets[] | "\(.name)\t\(.digest)"',
                 ],
-                # fmt: on
                 capture_output=True,
                 text=True,
                 timeout=_GH_TIMEOUT,
@@ -109,16 +106,32 @@ def _gh_release_assets(tag: str, repo: str) -> set[str] | None:
             # gh failed to LAUNCH or hung -- never an exit code, so an
             # rc-only check would not see these at all.
             last = f"{type(exc).__name__}: {exc}"
-            log.warning("gh release view %s: %s (attempt %d/2)", tag, last, attempt)
+            log.warning("gh api release %s: %s (attempt %d/2)", tag, last, attempt)
             continue
         if proc.returncode == 0:
-            return {ln.strip() for ln in proc.stdout.splitlines() if ln.strip()}
+            return dict(
+                ln.split("\t", 1) for ln in proc.stdout.splitlines() if "\t" in ln
+            )
         err = (proc.stderr or "").strip()
         if _NOT_FOUND in err.lower():
             return None  # confirmed absent
         last = f"exit {proc.returncode}: {err[:200]}"
-        log.warning("gh release view %s: %s (attempt %d/2)", tag, last, attempt)
+        log.warning("gh api release %s: %s (attempt %d/2)", tag, last, attempt)
     raise GhUnavailable(f"cannot resolve release {tag} on {repo} -- {last}")
+
+
+def _gh_release_assets(tag: str, repo: str) -> set[str] | None:
+    """Asset names for ``tag``, or ``None`` when the release is CONFIRMED absent."""
+    digests = _gh_release_digests(tag, repo)
+    return None if digests is None else set(digests)
+
+
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()  # chunked: hashlib.file_digest is 3.11+, this package is >=3.9
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return "sha256:" + h.hexdigest()
 
 
 def _gh_release_exists(tag: str, repo: str) -> bool:
@@ -227,6 +240,7 @@ def publish_dataset(
     runner: Callable[[list[str]], None] | None = None,
     exists_check: Callable[[str, str], bool] | None = None,
     make_rds: bool = True,
+    digests: Callable[[str, str], dict[str, str] | None] | None = None,
 ) -> dict:
     """Upload a dataset/season's parquet + csv + rds to the release, creating it if missing.
 
@@ -238,9 +252,17 @@ def publish_dataset(
         dry_run: If True, skip all ``gh`` calls and log the would-be uploads.
         runner: Injectable ``gh`` arg-list executor; defaults to a real subprocess call.
         exists_check: Injectable ``(tag, repo) -> bool`` release-existence check.
+            Injected alone, it keeps the old probe-and-upload-everything path.
         make_rds: If True, stage the rds asset from the parquet (via ``rds.to_rds``)
             when missing. RDS failure (e.g. no Rscript/arrow) only logs a warning --
             it never blocks the parquet+csv upload.
+        digests: Injectable ``(tag, repo) -> {name: "sha256:..."} | None``
+            release listing (``None`` = no release). Default: ONE ``gh api``
+            call per publish, and only changed files upload -- the csv.gz (gzip
+            mtime) and rds (write time) re-stamp every build but derive from the
+            parquet, so all formats are skipped when the parquet matches and
+            every file is already on the release. The parquet uploads LAST, so a
+            matching parquet always means the previous upload finished.
 
     Returns:
         dict: ``{"tag": ..., "files": [...], "uploaded": <count>}``.
@@ -260,7 +282,8 @@ def publish_dataset(
     # the documented `Callable[[list[str]], None]` and tests' fakes take no
     # timeout kwarg.
     upload = runner or partial(_gh, timeout=_GH_UPLOAD_TIMEOUT)
-    exists = exists_check or _gh_release_exists
+    if digests is None and exists_check is not None:
+        digests = lambda t, r: {} if exists_check(t, r) else None  # noqa: E731
     base = Path(base)
 
     if make_rds:
@@ -287,7 +310,17 @@ def publish_dataset(
     if not files:
         log.warning("%s %s: no files to publish under %s", spec.name, season, base)
 
-    if not dry_run and not exists(spec.tag, repo):
+    files.sort(key=lambda f: f.suffix == ".parquet")  # parquet LAST
+    remote: dict[str, str] = {}
+    if not dry_run:
+        try:
+            got = (digests or _gh_release_digests)(spec.tag, repo)
+        except GhUnavailable as exc:
+            # same safe default as _gh_release_exists: assume it exists, upload all
+            log.warning("%s -- assuming the release exists, uploading every file", exc)
+            got = {}
+        remote = got if got is not None else {}
+    if not dry_run and got is None:
         log.info("release %s missing on %s -- creating it", spec.tag, repo)
         run(
             [
@@ -303,8 +336,19 @@ def publish_dataset(
             ]
         )
 
+    pq = next((f for f in files if f.suffix == ".parquet"), None)
+    if (
+        pq is not None
+        and remote.get(pq.name) == _sha256(pq)
+        and all(f.name in remote for f in files)
+    ):
+        log.info("%s: %d unchanged asset(s) skipped", spec.tag, len(files))
+        todo: list[Path] = []
+    else:
+        todo = [f for f in files if f is pq or remote.get(f.name) != _sha256(f)]
+
     count = 0
-    for f in files:
+    for f in todo:  # a failed upload raises before the parquet goes
         if dry_run:
             size = human_size(f.stat().st_size)
             log.info("[dry-run] upload %s (%s) -> %s:%s", f, size, repo, spec.tag)
@@ -313,7 +357,7 @@ def publish_dataset(
         log.info("uploading %s (%s) -> %s:%s", f.name, size, repo, spec.tag)
         upload(["release", "upload", spec.tag, str(f), "--repo", repo, "--clobber"])
         count += 1
-        log.info("uploaded %s -> %s (asset %d/%d)", f.name, spec.tag, count, len(files))
+        log.info("uploaded %s -> %s (asset %d/%d)", f.name, spec.tag, count, len(todo))
 
     if count:
         _stamp(spec.tag, run, repo)
