@@ -43,4 +43,5 @@ known-first-party = ["ncaa_mfb_data_build"]
 # ../../sdv-py path -- a relative pin only builds on this sibling layout and
 # fails on CI). For local sdv-py work: uv pip install -e ../sdv-py.
 [tool.uv.sources]
-sportsdataverse = { git = "https://github.com/sportsdataverse/sportsdataverse-py", branch = "main" }
+# pinned 2026-10-21 until REPROCESS runs #1/#2 (sdv-py quality program, WB-nfl-2)
+sportsdataverse = { git = "https://github.com/sportsdataverse/sportsdataverse-py", rev = "77ee6d51cb0eafc582cca9b7bfc93c4600e8c010" }
