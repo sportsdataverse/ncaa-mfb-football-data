@@ -3,7 +3,7 @@
   "source": "ncaa",
   "season": 2026,
   "processing_version": "0.1.4+77ee6d51",
-  "built_at": "2026-10-26 04:43:35 UTC",
+  "built_at": "2026-10-26 09:02:01 UTC",
   "games": 1041,
   "games_error_free": 1019,
   "error_free_share": 0.9789,
@@ -23,21 +23,5 @@
     "ytg.scrimmage_start_1_99": 3,
     "plays.kickoff_count_matches_scores": 1
   },
-  "drift": [
-    {
-      "check": "rate_anomaly",
-      "severity": "warn",
-      "domain": "cfb",
-      "dataset": "pbp_cfbfastr",
-      "message": "mean of 'week' moved 30.2% (3.166 -> 4.122)",
-      "locator": {
-        "column": "week"
-      },
-      "expected": 3.166208809616338,
-      "actual": 4.122439716608062,
-      "metric": 0.302,
-      "needs_judgment": false,
-      "sample": null
-    }
-  ]
+  "drift": []
 }
