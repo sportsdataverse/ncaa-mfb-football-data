@@ -3,25 +3,41 @@
   "source": "ncaa",
   "season": 2026,
   "processing_version": "0.1.4+77ee6d51",
-  "built_at": "2026-10-21 05:10:43 UTC",
-  "games": 812,
-  "games_error_free": 799,
-  "error_free_share": 0.984,
-  "error_share": 0.016,
+  "built_at": "2026-10-26 04:43:35 UTC",
+  "games": 1041,
+  "games_error_free": 1019,
+  "error_free_share": 0.9789,
+  "error_share": 0.0211,
   "max_error_share": 0.05,
   "threshold_exceeded": false,
   "blocking": false,
   "counts_by_rule": {
-    "clock.monotone_within_period": 211,
-    "score.change_on_non_scoring_play": 39,
-    "ytg.continuity": 21,
-    "score.scoring_play_without_change": 20,
-    "down.scrimmage_distance_ge_1": 7,
-    "down.scrimmage_down_1_4": 5,
-    "score.delta_value": 5,
-    "score.monotone": 3,
+    "clock.monotone_within_period": 266,
+    "score.change_on_non_scoring_play": 49,
+    "ytg.continuity": 28,
+    "score.scoring_play_without_change": 27,
+    "down.scrimmage_distance_ge_1": 12,
+    "down.scrimmage_down_1_4": 10,
+    "score.delta_value": 9,
+    "score.monotone": 5,
     "ytg.scrimmage_start_1_99": 3,
     "plays.kickoff_count_matches_scores": 1
   },
-  "drift": []
+  "drift": [
+    {
+      "check": "rate_anomaly",
+      "severity": "warn",
+      "domain": "cfb",
+      "dataset": "pbp_cfbfastr",
+      "message": "mean of 'week' moved 30.2% (3.166 -> 4.122)",
+      "locator": {
+        "column": "week"
+      },
+      "expected": 3.166208809616338,
+      "actual": 4.122439716608062,
+      "metric": 0.302,
+      "needs_judgment": false,
+      "sample": null
+    }
+  ]
 }
