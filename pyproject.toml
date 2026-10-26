@@ -3,7 +3,7 @@ name = "ncaa-mfb-football-data"
 version = "0.1.0"
 description = "Python producer for the stats.ncaa.org NCAA football (MFB) release datasets (parquet/csv), reshaping ncaa-mfb-football-raw into season-level tidy datasets."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 dependencies = [
     "polars>=1.0",
@@ -44,4 +44,4 @@ known-first-party = ["ncaa_mfb_data_build"]
 # fails on CI). For local sdv-py work: uv pip install -e ../sdv-py.
 [tool.uv.sources]
 # pinned 2026-10-21 until REPROCESS runs #1/#2 (sdv-py quality program, WB-nfl-2)
-sportsdataverse = { git = "https://github.com/sportsdataverse/sportsdataverse-py", rev = "77ee6d51cb0eafc582cca9b7bfc93c4600e8c010" }
+sportsdataverse = { git = "https://github.com/sportsdataverse/sportsdataverse-py", rev = "c2031afbc72a0e892a19e56a0c03dd1425f76c40" }
