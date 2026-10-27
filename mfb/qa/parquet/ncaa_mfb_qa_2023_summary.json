@@ -2,8 +2,8 @@
   "league": "cfb",
   "source": "ncaa",
   "season": 2023,
-  "processing_version": "0.1.4+bec746b4",
-  "built_at": "2026-10-05 07:08:36 UTC",
+  "processing_version": "0.2.0b1+f94d8cb9",
+  "built_at": "2026-10-27 13:23:00 UTC",
   "games": 1569,
   "games_error_free": 1524,
   "error_free_share": 0.9713,
@@ -27,21 +27,5 @@
     "period.monotone": 1,
     "plays.kickoff_count_matches_scores": 1
   },
-  "drift": [
-    {
-      "check": "rate_anomaly",
-      "severity": "warn",
-      "domain": "cfb",
-      "dataset": "pbp_cfbfastr",
-      "message": "mean of 'yds_sacked' moved 666.7% (-1.143 -> 6.477)",
-      "locator": {
-        "column": "yds_sacked"
-      },
-      "expected": -1.1428571428571428,
-      "actual": 6.4769326683291775,
-      "metric": 6.6673,
-      "needs_judgment": false,
-      "sample": null
-    }
-  ]
+  "drift": []
 }
