@@ -2,8 +2,8 @@
   "league": "cfb",
   "source": "ncaa",
   "season": 2018,
-  "processing_version": "0.1.4+bec746b4",
-  "built_at": "2026-10-05 05:59:35 UTC",
+  "processing_version": "0.2.0b1+f94d8cb9",
+  "built_at": "2026-10-27 15:55:20 UTC",
   "games": 1532,
   "games_error_free": 1464,
   "error_free_share": 0.9556,
@@ -28,81 +28,5 @@
     "poss.kickoff_receiver_gets_ball": 3,
     "flags.completion_on_incomplete_text": 2
   },
-  "drift": [
-    {
-      "check": "rate_anomaly",
-      "severity": "warn",
-      "domain": "cfb",
-      "dataset": "pbp_cfbfastr",
-      "message": "mean of 'pos_score_diff' moved 45.0% (-0.6368 -> -0.9232)",
-      "locator": {
-        "column": "pos_score_diff"
-      },
-      "expected": -0.636841013146269,
-      "actual": -0.9232435612848011,
-      "metric": 0.4497,
-      "needs_judgment": false,
-      "sample": null
-    },
-    {
-      "check": "rate_anomaly",
-      "severity": "warn",
-      "domain": "cfb",
-      "dataset": "pbp_cfbfastr",
-      "message": "mean of 'score_pts' moved 13.7% (0.2305 -> 0.262)",
-      "locator": {
-        "column": "score_pts"
-      },
-      "expected": 0.23045190449764988,
-      "actual": 0.2620451719019537,
-      "metric": 0.1371,
-      "needs_judgment": false,
-      "sample": null
-    },
-    {
-      "check": "rate_anomaly",
-      "severity": "warn",
-      "domain": "cfb",
-      "dataset": "pbp_cfbfastr",
-      "message": "mean of 'yards_gained' moved 14.1% (6.591 -> 5.661)",
-      "locator": {
-        "column": "yards_gained"
-      },
-      "expected": 6.590987344271602,
-      "actual": 5.661004382795416,
-      "metric": 0.1411,
-      "needs_judgment": false,
-      "sample": null
-    },
-    {
-      "check": "rate_anomaly",
-      "severity": "warn",
-      "domain": "cfb",
-      "dataset": "pbp_cfbfastr",
-      "message": "mean of 'yds_rushed' moved 17.2% (6.115 -> 5.066)",
-      "locator": {
-        "column": "yds_rushed"
-      },
-      "expected": 6.11543917185598,
-      "actual": 5.066109611422888,
-      "metric": 0.1716,
-      "needs_judgment": false,
-      "sample": null
-    },
-    {
-      "check": "rate_anomaly",
-      "severity": "warn",
-      "domain": "cfb",
-      "dataset": "pbp_cfbfastr",
-      "message": "mean of 'yds_sacked' moved 146.0% (-14 -> 6.442)",
-      "locator": {
-        "column": "yds_sacked"
-      },
-      "expected": -14.0,
-      "actual": 6.44223910683827,
-      "metric": 1.4602,
-      "needs_judgment": false,
-      "sample": null
-    }
-  ]
+  "drift": []
 }
