@@ -2,8 +2,8 @@
   "league": "cfb",
   "source": "ncaa",
   "season": 2024,
-  "processing_version": "0.1.4+bec746b4",
-  "built_at": "2026-10-05 07:25:46 UTC",
+  "processing_version": "0.2.0b1+f94d8cb9",
+  "built_at": "2026-10-27 12:51:10 UTC",
   "games": 1664,
   "games_error_free": 1632,
   "error_free_share": 0.9808,
@@ -27,21 +27,5 @@
     "poss.kickoff_receiver_gets_ball": 1,
     "poss.punt_changes_possession": 1
   },
-  "drift": [
-    {
-      "check": "rate_anomaly",
-      "severity": "warn",
-      "domain": "cfb",
-      "dataset": "pbp_cfbfastr",
-      "message": "mean of 'yds_sacked' moved 249.0% (-4.3 -> 6.405)",
-      "locator": {
-        "column": "yds_sacked"
-      },
-      "expected": -4.3,
-      "actual": 6.405228758169935,
-      "metric": 2.4896,
-      "needs_judgment": false,
-      "sample": null
-    }
-  ]
+  "drift": []
 }
