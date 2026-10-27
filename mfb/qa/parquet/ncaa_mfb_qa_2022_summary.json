@@ -2,8 +2,8 @@
   "league": "cfb",
   "source": "ncaa",
   "season": 2022,
-  "processing_version": "0.1.4+bec746b4",
-  "built_at": "2026-10-05 06:52:23 UTC",
+  "processing_version": "0.2.0b1+f94d8cb9",
+  "built_at": "2026-10-27 13:38:58 UTC",
   "games": 1590,
   "games_error_free": 1549,
   "error_free_share": 0.9742,
@@ -27,36 +27,5 @@
     "poss.kickoff_receiver_gets_ball": 1,
     "ytg.td_start_eq_yards_gained": 1
   },
-  "drift": [
-    {
-      "check": "rate_anomaly",
-      "severity": "warn",
-      "domain": "cfb",
-      "dataset": "pbp_cfbfastr",
-      "message": "mean of 'yards_to_goal' moved 22.2% (63.83 -> 49.67)",
-      "locator": {
-        "column": "yards_to_goal"
-      },
-      "expected": 63.831363161266395,
-      "actual": 49.667040929520574,
-      "metric": 0.2219,
-      "needs_judgment": false,
-      "sample": null
-    },
-    {
-      "check": "rate_anomaly",
-      "severity": "warn",
-      "domain": "cfb",
-      "dataset": "pbp_cfbfastr",
-      "message": "mean of 'yds_sacked' moved 158.2% (-11.25 -> 6.546)",
-      "locator": {
-        "column": "yds_sacked"
-      },
-      "expected": -11.25,
-      "actual": 6.546099290780142,
-      "metric": 1.5819,
-      "needs_judgment": false,
-      "sample": null
-    }
-  ]
+  "drift": []
 }
